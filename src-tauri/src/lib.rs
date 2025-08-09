@@ -1,13 +1,10 @@
 mod commands;
 use commands::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize app state
-    let app_state = AppState::new().expect("Failed to initialize app state");
-
     tauri::Builder::default()
-        .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             // Card management commands
             commands::create_card,
@@ -24,6 +21,11 @@ pub fn run() {
             commands::my_custom_command
         ])
         .setup(|app| {
+            // Initialize app state with app handle
+            let app_state =
+                AppState::new(app.handle().clone()).expect("Failed to initialize app state");
+            app.manage(app_state);
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

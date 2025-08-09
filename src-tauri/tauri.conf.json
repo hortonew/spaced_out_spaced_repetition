@@ -10,11 +10,16 @@
         "withGlobalTauri": true,
         "windows": [
             {
-                "title": "Example App",
+                "title": "Spaced Repetition App",
                 "width": 800,
                 "height": 600,
                 "resizable": true,
-                "fullscreen": false
+                "fullscreen": false,
+                "visible": true,
+                "transparent": false,
+                "decorations": true,
+                "alwaysOnTop": false,
+                "skipTaskbar": false
             }
         ],
         "security": {

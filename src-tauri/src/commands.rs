@@ -5,7 +5,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
 // Data structures for spaced repetition
@@ -76,10 +76,12 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let data_dir = dirs::home_dir()
-            .ok_or("Unable to find home directory")?
-            .join(".spaced_repetition_app");
+    pub fn new(app_handle: AppHandle) -> Result<Self, Box<dyn std::error::Error>> {
+        // Use Tauri's app data directory (cross-platform)
+        let data_dir = app_handle
+            .path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data directory: {}", e))?;
 
         std::fs::create_dir_all(&data_dir)?;
         let data_file = data_dir.join("cards.json");
@@ -97,7 +99,6 @@ impl AppState {
             data_file,
         })
     }
-
     pub fn save_cards(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cards = self.cards.lock().unwrap();
         let file = OpenOptions::new()

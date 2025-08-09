@@ -1,6 +1,14 @@
 // Use the global Tauri API
 const invoke = window.__TAURI__.core.invoke;
 
+// Configuration
+const CONFIG = {
+    // Notification timeouts (in milliseconds)
+    SUCCESS_TIMEOUT: 1200,    // Regular success messages
+    ERROR_TIMEOUT: 3000,      // Error messages  
+    UNDO_TIMEOUT: 8000        // Messages with undo option
+};
+
 // Application state
 let currentSection = 'review';
 let currentReviewCards = [];
@@ -17,6 +25,10 @@ async function initializeApp() {
     setupEventListeners();
     await loadReviewStats();
     await loadCards();
+
+    // Restore the last active section
+    const savedSection = localStorage.getItem('currentSection') || 'review';
+    showSection(savedSection);
 }
 
 function setupNavigation() {
@@ -56,6 +68,9 @@ function showSection(sectionName) {
     }
 
     currentSection = sectionName;
+
+    // Save the current section to localStorage
+    localStorage.setItem('currentSection', sectionName);
 
     // Load section-specific data
     if (sectionName === 'browse') {
@@ -356,24 +371,26 @@ function showSuccess(message) {
     successEl.classList.remove('hidden');
     setTimeout(() => {
         successEl.classList.add('hidden');
-    }, 3000);
+    }, CONFIG.SUCCESS_TIMEOUT);
 }
 
 function showSuccessWithUndo(message) {
     const successEl = document.getElementById('success-message');
     successEl.innerHTML = `
-        ${message} 
-        <button onclick="undoDelete()" 
-                class="ml-2 px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors">
-            Undo
-        </button>
+        <div class="flex items-center justify-between">
+            <span>${message}</span>
+            <button onclick="undoDelete()" 
+                    class="ml-3 px-4 py-2 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors font-medium min-h-[40px] min-w-[60px]">
+                Undo
+            </button>
+        </div>
     `;
     successEl.classList.remove('hidden');
 
-    // Auto-hide after 8 seconds (longer for undo)
+    // Auto-hide after configured time (longer for undo)
     setTimeout(() => {
         successEl.classList.add('hidden');
-    }, 8000);
+    }, CONFIG.UNDO_TIMEOUT);
 }
 
 async function undoDelete() {
@@ -417,7 +434,7 @@ function showError(message) {
     errorEl.classList.remove('hidden');
     setTimeout(() => {
         errorEl.classList.add('hidden');
-    }, 3000);
+    }, CONFIG.ERROR_TIMEOUT);
 }
 
 function escapeHtml(text) {

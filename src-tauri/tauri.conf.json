@@ -1,6 +1,6 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "Example App",
+    "productName": "Spaced Out",
     "version": "0.1.0",
     "identifier": "com.tauri.hortonew.com",
     "build": {
@@ -10,7 +10,7 @@
         "withGlobalTauri": true,
         "windows": [
             {
-                "title": "Spaced Repetition App",
+                "title": "Spaced Out",
                 "width": 1000,
                 "height": 900,
                 "minWidth": 400,

@@ -15,5 +15,9 @@ run:
     cargo tauri build --no-bundle && ./src-tauri/target/release/app
 
 # Build and run Tauri Android in release mode
-android-run:
-    cargo tauri android build --apk
+apk:
+    # or --apk for production
+    cargo tauri android build --debug
+
+apk-install:
+    adb install src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk

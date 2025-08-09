@@ -15,9 +15,15 @@ let currentReviewCards = [];
 let currentCardIndex = 0;
 let currentCard = null;
 let lastDeletedCard = null; // Store last deleted card for undo
+let lastDeletedCards = []; // Store multiple deleted cards for bulk undo
 
 // Notification state
 let notificationCountdowns = {
+    success: null,
+    error: null
+};
+
+let notificationTimeouts = {
     success: null,
     error: null
 };
@@ -89,7 +95,31 @@ function setupNavigation() {
     });
 }
 
+function resetBulkActions() {
+    const selectionControls = document.getElementById('selection-controls');
+    const bulkActionsBtn = document.getElementById('bulk-actions-btn');
+    const bulkInstructions = document.getElementById('bulk-instructions');
+
+    // Exit bulk mode if it's currently active and elements exist
+    if (selectionControls && bulkActionsBtn && !selectionControls.classList.contains('hidden')) {
+        selectionControls.classList.add('hidden');
+        if (bulkInstructions) {
+            bulkInstructions.classList.add('hidden');
+        }
+        selectedCards.clear();
+        bulkActionsBtn.textContent = 'Bulk Actions';
+        bulkActionsBtn.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+        bulkActionsBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        console.log('Bulk mode reset when switching sections');
+    }
+}
+
 function showSection(sectionName) {
+    // Reset bulk actions when switching away from browse section
+    if (currentSection === 'browse' && sectionName !== 'browse') {
+        resetBulkActions();
+    }
+
     // Update navigation - use both selectors to be safe
     document.querySelectorAll('.nav-btn, [id^="nav-"]').forEach(btn => {
         btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700', 'ring-2', 'ring-emerald-400/30', 'shadow-lg', 'shadow-emerald-600/25');
@@ -161,7 +191,20 @@ function setupEventListeners() {
     document.getElementById('select-all').addEventListener('change', toggleSelectAll);
     document.getElementById('bulk-actions-btn').addEventListener('click', toggleBulkMode);
     document.getElementById('bulk-delete-btn').addEventListener('click', bulkDeleteCards);
-    document.getElementById('bulk-tag-select').addEventListener('change', bulkUpdateTag);
+    document.getElementById('bulk-tag-apply').addEventListener('click', bulkUpdateTag);
+
+    // Handle tag input/select interaction
+    document.getElementById('bulk-tag-select').addEventListener('change', (e) => {
+        if (e.target.value) {
+            document.getElementById('bulk-tag-input').value = e.target.value;
+        }
+    });
+
+    document.getElementById('bulk-tag-input').addEventListener('input', (e) => {
+        if (e.target.value) {
+            document.getElementById('bulk-tag-select').value = '';
+        }
+    });
 
     // Event delegation for delete buttons and card selection (since they're created dynamically)
     document.addEventListener('click', (e) => {
@@ -183,11 +226,13 @@ function setupEventListeners() {
     document.addEventListener('change', (e) => {
         if (e.target.classList.contains('card-checkbox')) {
             const cardId = e.target.dataset.cardId;
+            console.log('Card checkbox changed:', cardId, 'checked:', e.target.checked);
             if (e.target.checked) {
                 selectedCards.add(cardId);
             } else {
                 selectedCards.delete(cardId);
             }
+            console.log('selectedCards now contains:', Array.from(selectedCards));
             updateSelectionControls();
         }
     });
@@ -373,11 +418,13 @@ async function loadCards() {
     try {
         const cards = await invoke('get_cards');
         console.log('Loaded cards from backend:', cards.length, 'cards');
+        console.log('Card IDs loaded:', cards.map(c => c.id));
         allCards = cards; // Cache for filtering
         displayCards(cards);
+        console.log('Cards displayed successfully');
     } catch (error) {
         console.error('Error loading cards:', error);
-        showNotification('Failed to load cards', 'error');
+        showError('Failed to load cards');
     }
 }
 
@@ -385,9 +432,13 @@ function displayCards(cards) {
     const cardsList = document.getElementById('cards-list');
     const bulkActionsBtn = document.getElementById('bulk-actions-btn');
 
+    console.log('displayCards called with', cards.length, 'cards');
+    console.log('Selected cards before display:', Array.from(selectedCards));
+
     if (cards.length === 0) {
         cardsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No cards found.</p>';
         bulkActionsBtn.classList.add('hidden');
+        console.log('No cards to display, hiding bulk actions');
         return;
     }
 
@@ -417,6 +468,7 @@ function displayCards(cards) {
     }).join('');
 
     updateSelectionControls();
+    console.log('Cards displayed and selection controls updated');
 }
 
 async function deleteCard(cardId) {
@@ -482,9 +534,12 @@ function showSuccess(message) {
     const timeout = CONFIG.SUCCESS_TIMEOUT;
     let timeLeft = timeout / 1000; // Convert to seconds with decimals
 
-    // Clear any existing countdown
+    // Clear any existing countdown and timeout
     if (notificationCountdowns.success) {
         clearInterval(notificationCountdowns.success);
+    }
+    if (notificationTimeouts.success) {
+        clearTimeout(notificationTimeouts.success);
     }
 
     // Create the message structure once with countdown
@@ -511,12 +566,13 @@ function showSuccess(message) {
         }
     }, 100);
 
-    setTimeout(() => {
+    notificationTimeouts.success = setTimeout(() => {
         successEl.classList.add('hidden');
         if (notificationCountdowns.success) {
             clearInterval(notificationCountdowns.success);
             notificationCountdowns.success = null;
         }
+        notificationTimeouts.success = null;
     }, timeout);
 }
 
@@ -525,9 +581,12 @@ function showSuccessWithUndo(message) {
     const timeout = CONFIG.UNDO_TIMEOUT;
     let timeLeft = timeout / 1000; // Convert to seconds with decimals
 
-    // Clear any existing countdown
+    // Clear any existing countdown and timeout
     if (notificationCountdowns.success) {
         clearInterval(notificationCountdowns.success);
+    }
+    if (notificationTimeouts.success) {
+        clearTimeout(notificationTimeouts.success);
     }
 
     // Create the message structure once with countdown and buttons
@@ -565,59 +624,94 @@ function showSuccessWithUndo(message) {
     }, 100);
 
     // Auto-hide after configured time (longer for undo)
-    setTimeout(() => {
+    notificationTimeouts.success = setTimeout(() => {
         successEl.classList.add('hidden');
         if (notificationCountdowns.success) {
             clearInterval(notificationCountdowns.success);
             notificationCountdowns.success = null;
         }
+        notificationTimeouts.success = null;
     }, timeout);
 }
 
 async function undoDelete() {
-    if (!lastDeletedCard) {
-        showError('No card to restore');
+    // Check if we have bulk deleted cards or single deleted card
+    const hasBulkDeletes = lastDeletedCards.length > 0;
+    const hasSingleDelete = lastDeletedCard !== null;
+
+    if (!hasBulkDeletes && !hasSingleDelete) {
+        showError('No cards to restore');
         return;
     }
 
-    // Clear the countdown and hide the undo message immediately
+    // Clear the countdown and timeout, then hide the undo message immediately
     if (notificationCountdowns.success) {
         clearInterval(notificationCountdowns.success);
         notificationCountdowns.success = null;
+    }
+    if (notificationTimeouts.success) {
+        clearTimeout(notificationTimeouts.success);
+        notificationTimeouts.success = null;
     }
     document.getElementById('success-message').classList.add('hidden');
 
     try {
-        console.log('Undoing delete for card:', lastDeletedCard.front);
+        if (hasBulkDeletes) {
+            console.log('Undoing bulk delete for cards:', lastDeletedCards.length);
 
-        // Recreate the card (it will get a new ID, but that's fine)
-        await invoke('create_card', {
-            request: {
-                front: lastDeletedCard.front,
-                back: lastDeletedCard.back,
-                tag: lastDeletedCard.tag
+            // Recreate all the deleted cards
+            for (const card of lastDeletedCards) {
+                await invoke('create_card', {
+                    request: {
+                        front: card.front,
+                        back: card.back,
+                        tag: card.tag
+                    }
+                });
             }
-        });
+
+            showSuccess(`Restored ${lastDeletedCards.length} card${lastDeletedCards.length > 1 ? 's' : ''} successfully`);
+            console.log('Bulk cards restored successfully');
+
+            // Clear the stored cards
+            lastDeletedCards = [];
+        } else {
+            console.log('Undoing delete for card:', lastDeletedCard.front);
+
+            // Recreate the single card
+            await invoke('create_card', {
+                request: {
+                    front: lastDeletedCard.front,
+                    back: lastDeletedCard.back,
+                    tag: lastDeletedCard.tag
+                }
+            });
+
+            showSuccess('Card restored successfully');
+            console.log('Card restored successfully');
+
+            // Clear the stored card
+            lastDeletedCard = null;
+        }
 
         await loadCards();
         await loadReviewStats();
 
-        showSuccess('Card restored successfully');
-        console.log('Card restored successfully');
-
-        // Clear the stored card
-        lastDeletedCard = null;
     } catch (error) {
-        console.error('Failed to restore card:', error);
-        showError('Failed to restore card');
+        console.error('Failed to restore cards:', error);
+        showError('Failed to restore cards');
     }
 }
 
 function dismissUndo() {
-    // Clear the countdown and hide the undo message immediately
+    // Clear the countdown and timeout, then hide the undo message immediately
     if (notificationCountdowns.success) {
         clearInterval(notificationCountdowns.success);
         notificationCountdowns.success = null;
+    }
+    if (notificationTimeouts.success) {
+        clearTimeout(notificationTimeouts.success);
+        notificationTimeouts.success = null;
     }
     document.getElementById('success-message').classList.add('hidden');
 
@@ -630,9 +724,12 @@ function showError(message) {
     const timeout = CONFIG.ERROR_TIMEOUT;
     let timeLeft = timeout / 1000; // Convert to seconds with decimals
 
-    // Clear any existing countdown
+    // Clear any existing countdown and timeout
     if (notificationCountdowns.error) {
         clearInterval(notificationCountdowns.error);
+    }
+    if (notificationTimeouts.error) {
+        clearTimeout(notificationTimeouts.error);
     }
 
     // Create the message structure once with countdown
@@ -659,12 +756,13 @@ function showError(message) {
         }
     }, 100);
 
-    setTimeout(() => {
+    notificationTimeouts.error = setTimeout(() => {
         errorEl.classList.add('hidden');
         if (notificationCountdowns.error) {
             clearInterval(notificationCountdowns.error);
             notificationCountdowns.error = null;
         }
+        notificationTimeouts.error = null;
     }, timeout);
 }
 
@@ -703,7 +801,7 @@ function updateTagDropdowns() {
     });
 
     // Update bulk tag select
-    bulkTagSelect.innerHTML = '<option value="">Change Tag</option>';
+    bulkTagSelect.innerHTML = '<option value="">Select Tag</option>';
     tags.forEach(tag => {
         bulkTagSelect.innerHTML += `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`;
     });
@@ -745,16 +843,31 @@ function debounce(func, wait) {
 // Bulk operations
 function toggleBulkMode() {
     const selectionControls = document.getElementById('selection-controls');
+    const bulkActionsBtn = document.getElementById('bulk-actions-btn');
+    const bulkInstructions = document.getElementById('bulk-instructions');
     const isVisible = !selectionControls.classList.contains('hidden');
+
+    console.log('toggleBulkMode called, currently visible:', isVisible);
 
     if (isVisible) {
         // Hide bulk mode
         selectionControls.classList.add('hidden');
+        bulkInstructions.classList.add('hidden');
         selectedCards.clear();
+        bulkActionsBtn.textContent = 'Bulk Actions';
+        bulkActionsBtn.classList.remove('bg-orange-600', 'hover:bg-orange-700');
+        bulkActionsBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
         displayCards(allCards);
+        console.log('Bulk mode disabled');
     } else {
         // Show bulk mode
         selectionControls.classList.remove('hidden');
+        bulkInstructions.classList.remove('hidden');
+        bulkActionsBtn.textContent = 'Exit Bulk Mode';
+        bulkActionsBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        bulkActionsBtn.classList.add('bg-orange-600', 'hover:bg-orange-700');
+        updateSelectionControls(); // Initialize the state
+        console.log('Bulk mode enabled');
     }
 }
 
@@ -781,6 +894,7 @@ function updateSelectionControls() {
     const selectedCount = document.getElementById('selected-count');
     const selectAllCheckbox = document.getElementById('select-all');
     const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+    const bulkTagApplyBtn = document.getElementById('bulk-tag-apply');
 
     selectedCount.textContent = `${selectedCards.size} selected`;
 
@@ -799,33 +913,100 @@ function updateSelectionControls() {
     }
 
     // Enable/disable bulk actions
-    bulkDeleteBtn.disabled = selectedCards.size === 0;
+    const hasSelection = selectedCards.size > 0;
+    bulkDeleteBtn.disabled = !hasSelection;
+    bulkTagApplyBtn.disabled = !hasSelection;
+
+    console.log('Selection controls updated:', {
+        selectedCount: selectedCards.size,
+        buttonsDisabled: !hasSelection
+    });
 }
 
 async function bulkDeleteCards() {
-    if (selectedCards.size === 0) return;
+    console.log('bulkDeleteCards called, selectedCards:', selectedCards);
+    if (selectedCards.size === 0) {
+        console.log('No cards selected for deletion');
+        showError('Please select cards to delete first');
+        return;
+    }
 
     const cardIds = Array.from(selectedCards);
+    console.log('Card IDs to delete:', cardIds, 'Types:', cardIds.map(id => typeof id));
+
+    console.log('Proceeding with bulk deletion (no confirmation)...');
+    console.log('Attempting to delete cards:', cardIds);
+    console.log('Selected cards set before deletion:', selectedCards);
 
     try {
-        await invoke('delete_multiple_cards', { cardIds });
-        showNotification(`Deleted ${cardIds.length} cards successfully`, 'success');
+        // First, get all the cards before deleting them (for undo functionality)
+        console.log('Getting card data before deletion...');
+        const cardsToDelete = [];
+        for (const cardId of cardIds) {
+            try {
+                const card = await invoke('get_card', { id: cardId });
+                if (card) {
+                    cardsToDelete.push(card);
+                }
+            } catch (error) {
+                console.warn('Could not retrieve card for undo:', cardId, error);
+            }
+        }
+        console.log('Retrieved cards for potential undo:', cardsToDelete);
+
+        // Store for bulk undo
+        lastDeletedCards = cardsToDelete;
+        lastDeletedCard = null; // Clear single card undo
+
+        console.log('Calling backend delete_multiple_cards with:', { cardIds: cardIds });
+        const result = await invoke('delete_multiple_cards', { cardIds: cardIds });
+        console.log('Backend delete result:', result);
+
+        showSuccessWithUndo(`Deleted ${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
+
+        // Clear selection first, before refreshing UI
         selectedCards.clear();
+        console.log('Cleared selected cards:', Array.from(selectedCards));
+
+        // Force immediate UI update
+        console.log('Refreshing UI after bulk delete...');
+
+        // Add a small delay to ensure backend has processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         await loadCards();
         await loadReviewStats();
+        updateSelectionControls();
+
+        console.log('Bulk delete completed successfully');
     } catch (error) {
         console.error('Failed to delete cards:', error);
-        showNotification('Failed to delete cards', 'error');
+        showError(`Failed to delete cards: ${error}`);
     }
 }
 
 async function bulkUpdateTag() {
     const bulkTagSelect = document.getElementById('bulk-tag-select');
-    const newTag = bulkTagSelect.value;
+    const bulkTagInput = document.getElementById('bulk-tag-input');
+    const newTag = bulkTagInput.value.trim() || bulkTagSelect.value;
 
-    if (!newTag || selectedCards.size === 0) return;
+    console.log('bulkUpdateTag called, selectedCards:', selectedCards, 'newTag:', newTag);
+
+    if (selectedCards.size === 0) {
+        console.log('No cards selected for tag update');
+        showError('Please select cards first');
+        return;
+    }
+
+    if (!newTag) {
+        console.log('No tag specified');
+        showError('Please select a tag or enter a new one');
+        return;
+    }
 
     const cardIds = Array.from(selectedCards);
+    console.log('Card IDs for tag update:', cardIds, 'Types:', cardIds.map(id => typeof id));
+    console.log('Attempting to update tag for cards:', cardIds, 'to:', newTag);
 
     try {
         const request = {
@@ -833,14 +1014,27 @@ async function bulkUpdateTag() {
             tag: newTag
         };
 
-        await invoke('bulk_update_tag', { request });
-        showNotification(`Updated tag for ${cardIds.length} cards`, 'success');
+        console.log('Calling backend bulk_update_tag with:', request);
+        const result = await invoke('bulk_update_tag', { request });
+        console.log('Backend tag update result:', result);
+
+        showSuccess(`Updated tag for ${cardIds.length} cards to "${newTag}"`);
         selectedCards.clear();
+
+        // Force immediate UI update with delay
+        console.log('Refreshing UI after bulk tag update...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         await loadCards();
+        await loadTags(); // Refresh tags in case it's a new one
         bulkTagSelect.value = '';
+        bulkTagInput.value = '';
+        updateSelectionControls();
+
+        console.log('Bulk tag update completed successfully');
     } catch (error) {
         console.error('Failed to update tag:', error);
-        showNotification('Failed to update tag', 'error');
+        showError('Failed to update tag');
     }
 }
 

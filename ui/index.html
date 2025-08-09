@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- Tailwind v4 Play CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <title>Spaced Repetition App</title>
+  <title>Spaced Out</title>
   <style>
     /* Custom styles for mobile safety areas and responsive navigation */
     @media (max-width: 768px) {
@@ -47,8 +47,8 @@
   <main class="mx-auto max-w-2xl p-4 sm:p-6">
     <!-- Header -->
     <header class="mb-6 sm:mb-8 pt-2 sm:pt-0">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">📚 Spaced Repetition</h1>
-      <p class="text-zinc-400 text-sm sm:text-base">Learn efficiently with spaced repetition flashcards</p>
+      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">🚀 Spaced Out</h1>
+      <p class="text-zinc-400 text-sm sm:text-base">A spaced repetition app</p>
     </header>
 
     <!-- Navigation -->
@@ -153,13 +153,24 @@
               <span id="selected-count" class="text-sm text-zinc-400">0 selected</span>
             </div>
             <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-              <select id="bulk-tag-select" class="rounded-lg bg-zinc-700 border border-zinc-600 p-2 text-sm text-zinc-100">
-                <option value="">Change Tag</option>
-              </select>
-              <button id="bulk-delete-btn" class="rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-sm transition-colors">
+              <div class="flex space-x-2">
+                <select id="bulk-tag-select" class="rounded-lg bg-zinc-700 border border-zinc-600 p-2 text-sm text-zinc-100">
+                  <option value="">Select Tag</option>
+                </select>
+                <input id="bulk-tag-input" type="text" placeholder="Or type new tag" class="rounded-lg bg-zinc-700 border border-zinc-600 p-2 text-sm text-zinc-100 w-32">
+                <button id="bulk-tag-apply" class="rounded-lg bg-green-600 hover:bg-green-700 px-3 py-2 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  Apply Tag
+                </button>
+              </div>
+              <button id="bulk-delete-btn" class="rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                 Delete Selected
               </button>
             </div>
+          </div>
+          
+          <!-- Bulk Mode Instructions -->
+          <div id="bulk-instructions" class="hidden p-3 bg-blue-900/30 border border-blue-700/50 rounded-lg text-sm text-blue-200">
+            <strong>Bulk Mode Active:</strong> Select cards using checkboxes, then use the actions above to modify multiple cards at once.
           </div>
         </div>
 

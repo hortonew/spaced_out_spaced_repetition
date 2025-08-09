@@ -26,3 +26,9 @@ tauri-plugin-log = "2"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 dirs = "6.0"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+serial_test = "3.0"
+tokio = { version = "1.0", features = ["rt", "macros"] }

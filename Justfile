@@ -28,3 +28,7 @@ apk-install:
 debug:
     cargo tauri android build --debug
     adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+
+# Run tests
+test:
+    cargo test -p app

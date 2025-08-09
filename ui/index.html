@@ -19,14 +19,6 @@
     </div>
   </main>
 
-  <script type="module">
-    import { invoke } from "tauri://core"; // available in Tauri v2
-    document.getElementById("ping").addEventListener("click", async () => {
-      const msg = await invoke("say_hello", { name: "friend" });
-      const out = document.getElementById("out");
-      out.textContent = msg;
-      out.classList.remove("hidden");
-    });
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

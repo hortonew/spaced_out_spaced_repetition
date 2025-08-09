@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <!-- Tailwind v4 Play CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <title>Spaced Out</title>
@@ -39,6 +39,202 @@
     @media (max-width: 480px) {
       .nav-grid {
         grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    
+    /* Mobile keyboard handling */
+    @media (max-width: 768px) {
+      .keyboard-adaptive-form {
+        min-height: 0;
+        overflow-y: visible;
+      }
+      
+      .keyboard-adaptive-textarea {
+        resize: none;
+        min-height: 80px;
+        max-height: 120px;
+      }
+      
+      /* When virtual keyboard is shown, reduce spacing */
+      .form-field-compact {
+        margin-bottom: 1rem;
+      }
+      
+      /* Ensure the create section is scrollable */
+      #create-section {
+        min-height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      /* Make the form container more mobile-friendly */
+      #create-card-form {
+        padding-bottom: 200px; /* Extra space at bottom for keyboard */
+      }
+    }
+    
+    /* Ensure focused elements are visible */
+    input:focus, textarea:focus {
+      scroll-margin-top: 20px;
+      scroll-margin-bottom: 100px;
+    }
+    
+    /* Better mobile scrolling */
+    @media (max-width: 768px) {
+      body {
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        height: 100%;
+      }
+      
+      main {
+        min-height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+    
+    /* Keyboard visible state */
+    body.keyboard-visible {
+      padding-bottom: 0;
+    }
+    
+    @media (max-width: 768px) {
+      body.keyboard-visible .mobile-safe-bottom {
+        padding-bottom: 10px;
+      }
+      
+      body.keyboard-visible main {
+        padding-bottom: 10px;
+      }
+      
+      body.keyboard-visible .form-field-compact {
+        margin-bottom: 0.75rem !important;
+      }
+    }
+    
+    /* Landscape/horizontal orientation optimizations */
+    @media screen and (max-width: 768px) and (orientation: landscape) {
+      /* Force minimum viewport height to ensure scrollability */
+      html, body {
+        min-height: 150vh !important; /* Force extra height for scrolling (reduced from 200vh) */
+        height: auto !important;
+      }
+      
+      main {
+        min-height: 150vh !important; /* Ensure main container extends far enough (reduced from 200vh) */
+        height: auto !important;
+      }
+      
+      /* Compact layout for landscape mode */
+      .mobile-safe-top {
+        padding-top: max(env(safe-area-inset-top, 10px), 10px);
+      }
+      
+      .mobile-safe-bottom {
+        padding-bottom: max(env(safe-area-inset-bottom, 10px), 10px);
+      }
+      
+      /* More compact header */
+      header {
+        margin-bottom: 1rem !important;
+      }
+      
+      header h1 {
+        font-size: 1.5rem !important;
+        margin-bottom: 0.25rem !important;
+      }
+      
+      header p {
+        font-size: 0.875rem !important;
+      }
+      
+      /* More compact navigation */
+      nav {
+        margin-bottom: 1rem !important;
+      }
+      
+      .nav-btn {
+        padding: 0.5rem 0.25rem !important;
+        font-size: 0.75rem !important;
+      }
+      
+      /* Optimize create card form for landscape */
+      #create-section .rounded-2xl {
+        padding: 1rem !important;
+      }
+      
+      #create-section h2 {
+        font-size: 1.125rem !important;
+        margin-bottom: 1rem !important;
+      }
+      
+      /* Much more compact form fields in landscape */
+      .form-field-compact {
+        margin-bottom: 0.5rem !important;
+      }
+      
+      .keyboard-adaptive-textarea {
+        min-height: 60px !important;
+        max-height: 80px !important;
+        padding: 0.5rem !important;
+        font-size: 0.875rem !important;
+      }
+      
+      #card-tag-input {
+        padding: 0.5rem !important;
+        font-size: 0.875rem !important;
+      }
+      
+      .form-field-compact label {
+        margin-bottom: 0.25rem !important;
+        font-size: 0.875rem !important;
+      }
+      
+      /* Compact submit button */
+      #create-card-form button[type="submit"] {
+        padding: 0.75rem 1rem !important;
+        margin-top: 0.75rem !important;
+        font-size: 0.875rem !important;
+      }
+      
+      /* Ensure extra space at bottom for keyboard in landscape */
+      #create-card-form {
+        padding-bottom: 400px !important; /* Much more space needed in landscape */
+      }
+      
+      /* Ensure the entire viewport is scrollable with background extending */
+      #create-section {
+        min-height: 150vh !important; /* Force section to be very tall (reduced from 200vh) */
+        background: inherit; /* Inherit the dark background */
+      }
+      
+      /* Make sure the rounded container doesn't limit scrolling */
+      #create-section .rounded-2xl {
+        min-height: 110vh !important; /* Container itself needs to be tall (reduced from 150vh) */
+        background: rgba(39, 39, 42, 0.6) !important; /* Ensure background shows */
+      }
+      
+      /* When keyboard is visible in landscape, make it even more compact */
+      body.keyboard-visible .form-field-compact {
+        margin-bottom: 0.25rem !important;
+      }
+      
+      body.keyboard-visible .keyboard-adaptive-textarea {
+        min-height: 50px !important;
+        max-height: 60px !important;
+      }
+      
+      /* Make sure the tag field is always visible */
+      body.keyboard-visible #card-tag-input {
+        margin-bottom: 0.5rem !important;
+      }
+      
+      /* Ensure create section itself is scrollable in landscape with keyboard */
+      body.keyboard-visible #create-section {
+        padding-bottom: 300px !important;
+        min-height: 110vh !important; /* Force extra height for scrolling (reduced from 150vh) */
       }
     }
   </style>
@@ -184,21 +380,21 @@
     <!-- Create Card Section -->
     <section id="create-section" class="section hidden">
       <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10">
-        <h2 class="text-lg sm:text-xl font-semibold mb-6">Create New Card</h2>
-        <form id="create-card-form" class="space-y-4">
-          <div>
+        <h2 class="text-lg sm:text-xl font-semibold mb-4 sm:mb-6">Create New Card</h2>
+        <form id="create-card-form" class="keyboard-adaptive-form space-y-3 sm:space-y-4">
+          <div class="form-field-compact">
             <label class="block text-sm font-medium mb-2">Front (Question)</label>
-            <textarea id="card-front-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="3" placeholder="Enter the question or prompt..."></textarea>
+            <textarea id="card-front-input" class="keyboard-adaptive-textarea w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="2" placeholder="Enter the question or prompt..."></textarea>
           </div>
-          <div>
+          <div class="form-field-compact">
             <label class="block text-sm font-medium mb-2">Back (Answer)</label>
-            <textarea id="card-back-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="3" placeholder="Enter the answer or explanation..."></textarea>
+            <textarea id="card-back-input" class="keyboard-adaptive-textarea w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="2" placeholder="Enter the answer or explanation..."></textarea>
           </div>
-          <div>
+          <div class="form-field-compact">
             <label class="block text-sm font-medium mb-2">Tag (Optional)</label>
             <input id="card-tag-input" type="text" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" placeholder="e.g., Spanish, History...">
           </div>
-          <button type="submit" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 sm:px-6 py-3 sm:py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02]">
+          <button type="submit" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 sm:px-6 py-3 sm:py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02] mt-4 sm:mt-6">
             Create Card
           </button>
         </form>

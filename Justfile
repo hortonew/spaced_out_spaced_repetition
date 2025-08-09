@@ -19,5 +19,12 @@ apk:
     # or --apk for production
     cargo tauri android build --debug
 
+# Deploy debug build to android phone over USB
 apk-install:
-    adb install src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+    adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+
+
+# Build and Deploy debug build to android phone over USB
+debug:
+    cargo tauri android build --debug
+    adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk

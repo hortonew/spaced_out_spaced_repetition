@@ -236,9 +236,398 @@ function setupEventListeners() {
             updateSelectionControls();
         }
     });
+
+    // Mobile keyboard handling
+    setupMobileKeyboardHandling();
 }
 
-// Settings functions
+function setupMobileKeyboardHandling() {
+    // Check if we're on a mobile device
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (!isMobile) return;
+
+    let originalViewportHeight = window.innerHeight;
+    let isKeyboardVisible = false;
+    let keyboardCheckInterval = null;
+
+    // Function to scroll to top of current section
+    function scrollToTopOfSection() {
+        console.log('scrollToTopOfSection called');
+
+        // Try multiple approaches for maximum reliability
+        const currentSectionEl = document.querySelector('.section:not(.hidden)');
+        const createSection = document.getElementById('create-section');
+        const mainElement = document.querySelector('main');
+
+        // Strategy 1: Scroll the current visible section
+        if (currentSectionEl) {
+            console.log('Scrolling current section:', currentSectionEl.id);
+            currentSectionEl.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'nearest'
+            });
+        }
+
+        // Strategy 2: If we're in create section, scroll it specifically
+        if (createSection && !createSection.classList.contains('hidden')) {
+            console.log('Scrolling create section specifically');
+            createSection.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'nearest'
+            });
+        }
+
+        // Strategy 3: Scroll main container
+        if (mainElement) {
+            console.log('Scrolling main element');
+            mainElement.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'nearest'
+            });
+        }
+
+        // Strategy 4: Force scroll to absolute top
+        console.log('Force scrolling to top of window');
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+
+        // Strategy 5: Immediate fallback for mobile
+        setTimeout(() => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'auto'
+            });
+        }, 100);
+    }
+
+    // Make the scroll function globally available
+    window.scrollToTopOfSection = scrollToTopOfSection;
+
+    // Detect keyboard visibility changes
+    function checkKeyboardVisibility() {
+        const currentHeight = window.innerHeight;
+        const heightDifference = originalViewportHeight - currentHeight;
+
+        // Adjust keyboard threshold based on orientation
+        const isLandscape = window.innerWidth > window.innerHeight;
+        const keyboardThreshold = isLandscape ? 100 : 150; // Lower threshold for landscape
+
+        const newKeyboardState = heightDifference > keyboardThreshold;
+
+        if (newKeyboardState !== isKeyboardVisible) {
+            isKeyboardVisible = newKeyboardState;
+            console.log('Keyboard visibility changed:', isKeyboardVisible ? 'visible' : 'hidden',
+                'Landscape:', isLandscape, 'Threshold:', keyboardThreshold);
+
+            // Handle landscape mode keyboard visibility
+            if (isLandscape) {
+                handleLandscapeKeyboard(newKeyboardState);
+            }
+
+            if (!isKeyboardVisible) {
+                // Keyboard just disappeared - scroll to top after a brief delay
+                setTimeout(() => {
+                    const createSection = document.getElementById('create-section');
+                    if (createSection && !createSection.classList.contains('hidden')) {
+                        scrollToTopOfSection();
+                    }
+                }, 200);
+            }
+        }
+    }
+
+    // Special handling for landscape mode keyboard
+    function handleLandscapeKeyboard(keyboardVisible) {
+        const createSection = document.getElementById('create-section');
+        const form = document.getElementById('create-card-form');
+        const body = document.body;
+        const main = document.querySelector('main');
+
+        if (!createSection || !form) return;
+
+        if (keyboardVisible) {
+            console.log('Keyboard visible in landscape - ensuring scrollable viewport');
+
+            // Add keyboard-visible class for CSS styling
+            document.body.classList.add('keyboard-visible');
+
+            // Force extra height to ensure scrollability - make the entire viewport much taller
+            const extraHeight = window.innerHeight * 2.25; // 2.25x viewport height (reduced from 3x)
+            body.style.minHeight = extraHeight + 'px';
+            if (main) main.style.minHeight = extraHeight + 'px';
+            form.style.minHeight = extraHeight + 'px';
+            createSection.style.minHeight = extraHeight + 'px';
+
+            // Ensure background extends all the way down
+            createSection.style.background = 'rgb(9, 9, 11)'; // Match body background
+
+            console.log('Set landscape heights to:', extraHeight + 'px');
+
+            // Ensure we can scroll to see all form fields
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+                    // Force scroll to ensure the active input is visible
+                    activeElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                }
+            }, 300);
+
+        } else {
+            console.log('Keyboard hidden in landscape - restoring normal heights');
+
+            // Remove keyboard-visible class
+            document.body.classList.remove('keyboard-visible');
+
+            // Reset heights
+            body.style.minHeight = '';
+            if (main) main.style.minHeight = '';
+            form.style.minHeight = '';
+            createSection.style.minHeight = '';
+            createSection.style.background = '';
+        }
+    }
+
+    // Start monitoring keyboard visibility
+    function startKeyboardMonitoring() {
+        if (keyboardCheckInterval) return;
+
+        keyboardCheckInterval = setInterval(checkKeyboardVisibility, 200);
+        console.log('Started keyboard monitoring');
+    }
+
+    // Stop monitoring keyboard visibility
+    function stopKeyboardMonitoring() {
+        if (keyboardCheckInterval) {
+            clearInterval(keyboardCheckInterval);
+            keyboardCheckInterval = null;
+            console.log('Stopped keyboard monitoring');
+        }
+    }
+
+    // Simple and effective input focus handling
+    function setupInputFocusHandling() {
+        const inputs = document.querySelectorAll('#create-card-form input, #create-card-form textarea');
+
+        inputs.forEach(input => {
+            // Remove any existing listeners to avoid duplicates
+            input.removeEventListener('focus', handleInputFocus);
+            input.removeEventListener('input', handleInputChange);
+            input.removeEventListener('blur', handleInputBlur);
+
+            // Add focus listener
+            input.addEventListener('focus', handleInputFocus);
+            input.addEventListener('input', handleInputChange);
+            input.addEventListener('blur', handleInputBlur);
+        });
+    }
+
+    function handleInputFocus(e) {
+        const input = e.target;
+        console.log('Input focused:', input.id);
+
+        // Start monitoring for keyboard hide events
+        startKeyboardMonitoring();
+
+        // Check if we're in landscape mode for more aggressive scrolling
+        const isLandscape = window.innerWidth > window.innerHeight;
+
+        // Special handling for tag input in landscape mode
+        if (isLandscape && input.id === 'card-tag-input') {
+            console.log('Tag input focused in landscape - using aggressive scrolling');
+
+            // Force immediate scroll to top
+            setTimeout(() => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }, 50);
+
+            // Then scroll the form to ensure tag field is visible
+            setTimeout(() => {
+                const form = document.getElementById('create-card-form');
+                if (form) {
+                    form.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                        inline: 'nearest'
+                    });
+                }
+            }, 200);
+
+            // Finally ensure the tag input itself is in view
+            setTimeout(() => {
+                input.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            }, 400);
+
+            return; // Skip the normal handling for tag input in landscape
+        }
+
+        // Multiple strategies to ensure the input is visible
+        setTimeout(() => {
+            // Strategy 1: Scroll the input into view
+            input.scrollIntoView({
+                behavior: 'smooth',
+                block: isLandscape ? 'start' : 'center', // More aggressive in landscape
+                inline: 'nearest'
+            });
+        }, 100);
+
+        setTimeout(() => {
+            // Strategy 2: Scroll to top of the form
+            const form = document.getElementById('create-card-form');
+            if (form) {
+                form.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            }
+        }, isLandscape ? 200 : 300); // Faster in landscape
+
+        setTimeout(() => {
+            // Strategy 3: Force scroll the entire page to show the input
+            const inputRect = input.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+
+            // More aggressive scrolling in landscape mode
+            const targetPosition = isLandscape ? viewportHeight / 6 : viewportHeight / 4;
+
+            // If input is in bottom half of screen, scroll it to target position
+            if (inputRect.top > viewportHeight / 2) {
+                const scrollAmount = inputRect.top - targetPosition;
+                window.scrollBy({
+                    top: scrollAmount,
+                    behavior: 'smooth'
+                });
+            }
+        }, isLandscape ? 300 : 500); // Faster in landscape
+    }
+
+    function handleInputChange(e) {
+        // Keep the input visible while typing
+        const input = e.target;
+        const inputRect = input.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        // If input is too low on screen, scroll up
+        if (inputRect.bottom > viewportHeight - 50) {
+            input.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'nearest'
+            });
+        }
+    }
+
+    function handleInputBlur(e) {
+        // When all inputs lose focus, check if keyboard should be hidden
+        setTimeout(() => {
+            const activeElement = document.activeElement;
+            const isInputFocused = activeElement &&
+                (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') &&
+                activeElement.closest('#create-card-form');
+
+            if (!isInputFocused) {
+                // No form input is focused, stop monitoring
+                setTimeout(stopKeyboardMonitoring, 500);
+            }
+        }, 100);
+    }
+
+    // Update viewport height on orientation change
+    window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+            originalViewportHeight = window.innerHeight;
+            checkKeyboardVisibility();
+
+            // Special handling for landscape mode
+            const isLandscape = window.innerWidth > window.innerHeight;
+            console.log('Orientation changed, landscape:', isLandscape);
+
+            if (isLandscape) {
+                // In landscape mode, ensure adequate scrollable space even before keyboard appears
+                const createSection = document.getElementById('create-section');
+                if (createSection && !createSection.classList.contains('hidden')) {
+                    console.log('Setting up landscape viewport for create section');
+
+                    // Pre-set taller viewport for landscape mode
+                    const body = document.body;
+                    const main = document.querySelector('main');
+                    const extraHeight = window.innerHeight * 1.9; // 1.9x height for better scrolling (reduced from 2.5x)
+
+                    body.style.minHeight = extraHeight + 'px';
+                    if (main) main.style.minHeight = extraHeight + 'px';
+                    createSection.style.minHeight = extraHeight + 'px';
+
+                    setTimeout(() => {
+                        scrollToTopOfSection();
+                    }, 300);
+                }
+            } else {
+                // Portrait mode - reset to normal heights
+                const body = document.body;
+                const main = document.querySelector('main');
+                const createSection = document.getElementById('create-section');
+
+                if (!document.body.classList.contains('keyboard-visible')) {
+                    body.style.minHeight = '';
+                    if (main) main.style.minHeight = '';
+                    if (createSection) createSection.style.minHeight = '';
+                }
+            }
+        }, 500);
+    });
+
+    // Set up input focus handling whenever the create section becomes visible
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const createSection = document.getElementById('create-section');
+                if (createSection && !createSection.classList.contains('hidden')) {
+                    // Small delay to ensure elements are rendered
+                    setTimeout(setupInputFocusHandling, 100);
+                } else {
+                    // Section is hidden, stop monitoring
+                    stopKeyboardMonitoring();
+                }
+            }
+        });
+    });
+
+    // Observe changes to section visibility
+    const sections = document.querySelectorAll('.section');
+    sections.forEach(section => {
+        observer.observe(section, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    });
+
+    // Initial setup if create section is already visible
+    setTimeout(() => {
+        const createSection = document.getElementById('create-section');
+        if (createSection && !createSection.classList.contains('hidden')) {
+            setupInputFocusHandling();
+        }
+    }, 100);
+
+    console.log('Mobile keyboard handling initialized');
+}// Settings functions
 function showSettingsMenu() {
     const settingsMenu = document.getElementById('settings-menu');
     const aboutSection = document.getElementById('about-section');
@@ -403,6 +792,19 @@ async function createCard(e) {
         // Clear form
         document.getElementById('create-card-form').reset();
         showSuccess('Card created successfully!');
+
+        // Scroll to top of the create section - use multiple strategies for reliability
+        setTimeout(() => {
+            scrollToTopOfSection();
+        }, 100);
+
+        setTimeout(() => {
+            // Force scroll to absolute top as fallback
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }, 300);
 
         // Update stats
         await loadReviewStats();

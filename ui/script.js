@@ -127,8 +127,12 @@ function showSection(sectionName) {
         loadDetailedStats();
     } else if (sectionName === 'review') {
         loadReviewStats();
+    } else if (sectionName === 'settings') {
+        showSettingsMenu();
     }
-} function setupEventListeners() {
+}
+
+function setupEventListeners() {
     // Review section
     document.getElementById('start-review').addEventListener('click', startReview);
     document.getElementById('show-answer-btn').addEventListener('click', showAnswer);
@@ -187,6 +191,44 @@ function showSection(sectionName) {
             updateSelectionControls();
         }
     });
+}
+
+// Settings functions
+function showSettingsMenu() {
+    const settingsMenu = document.getElementById('settings-menu');
+    const aboutSection = document.getElementById('about-section');
+
+    // Show the main settings menu, hide the about section
+    settingsMenu.style.display = 'block';
+    aboutSection.style.display = 'none';
+
+    // Set up event listeners for settings if not already done
+    setupSettingsEventListeners();
+}
+
+function setupSettingsEventListeners() {
+    // Remove existing listeners to prevent duplicates
+    const aboutBtn = document.getElementById('about-btn');
+    const backToSettingsBtn = document.getElementById('back-to-settings');
+
+    if (aboutBtn && !aboutBtn.hasAttribute('data-listener-added')) {
+        aboutBtn.addEventListener('click', showAboutSection);
+        aboutBtn.setAttribute('data-listener-added', 'true');
+    }
+
+    if (backToSettingsBtn && !backToSettingsBtn.hasAttribute('data-listener-added')) {
+        backToSettingsBtn.addEventListener('click', showSettingsMenu);
+        backToSettingsBtn.setAttribute('data-listener-added', 'true');
+    }
+}
+
+function showAboutSection() {
+    const settingsMenu = document.getElementById('settings-menu');
+    const aboutSection = document.getElementById('about-section');
+
+    // Hide the settings menu, show the about section
+    settingsMenu.style.display = 'none';
+    aboutSection.style.display = 'block';
 }
 
 async function loadReviewStats() {

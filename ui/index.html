@@ -59,6 +59,7 @@
         <button id="nav-create" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Create</button>
         <button id="nav-tags" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Tags</button>
         <button id="nav-stats" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Stats</button>
+        <button id="nav-settings" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Settings</button>
       </div>
     </nav>
 
@@ -223,6 +224,97 @@
           <div class="text-center p-4 bg-zinc-800/50 rounded-lg">
             <div class="text-2xl font-bold text-green-400" id="stat-mature">0</div>
             <div class="text-sm text-zinc-400">Mature Cards</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Section -->
+    <section id="settings-section" class="section hidden">
+      <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10">
+        <h2 class="text-lg sm:text-xl font-semibold mb-6">Settings</h2>
+        
+        <!-- Settings Menu -->
+        <div id="settings-menu" class="space-y-3">
+          <button id="about-btn" class="w-full text-left px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors duration-200 flex items-center justify-between group">
+            <span class="font-medium">About</span>
+            <svg class="w-5 h-5 text-zinc-400 group-hover:text-zinc-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          
+          <!-- Future settings options can be added here -->
+          <div class="text-center py-8 text-zinc-500 text-sm">
+            More settings coming soon...
+          </div>
+        </div>
+
+        <!-- About Section -->
+        <div id="about-section" class="hidden">
+          <div class="mb-4">
+            <button id="back-to-settings" class="flex items-center text-zinc-400 hover:text-zinc-300 transition-colors mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              Back to Settings
+            </button>
+          </div>
+          
+          <div class="space-y-6">
+            <div class="text-center">
+              <div class="text-4xl mb-4">📚</div>
+              <h3 class="text-xl font-bold mb-2">Spaced Repetition App</h3>
+              <p class="text-zinc-400 text-sm">Version 1.0.0</p>
+            </div>
+            
+            <div class="border-t border-zinc-700 pt-6">
+              <h4 class="font-semibold mb-3">About This App</h4>
+              <div class="space-y-3 text-sm text-zinc-300 leading-relaxed">
+                <p>
+                  This is a spaced repetition learning app designed to help you memorize information efficiently 
+                  using scientifically proven techniques.
+                </p>
+                <p>
+                  The app uses the SM-2 algorithm to optimize when you review flashcards based on how well 
+                  you remember them, helping you learn faster and retain knowledge longer.
+                </p>
+              </div>
+            </div>
+            
+            <div class="border-t border-zinc-700 pt-6">
+              <h4 class="font-semibold mb-3">Key Features</h4>
+              <ul class="space-y-2 text-sm text-zinc-300">
+                <li class="flex items-start">
+                  <span class="text-emerald-400 mr-2">•</span>
+                  Smart spaced repetition scheduling
+                </li>
+                <li class="flex items-start">
+                  <span class="text-emerald-400 mr-2">•</span>
+                  Card organization with categories and tags
+                </li>
+                <li class="flex items-start">
+                  <span class="text-emerald-400 mr-2">•</span>
+                  Progress tracking and statistics
+                </li>
+                <li class="flex items-start">
+                  <span class="text-emerald-400 mr-2">•</span>
+                  Cross-platform support (Desktop & Mobile)
+                </li>
+                <li class="flex items-start">
+                  <span class="text-emerald-400 mr-2">•</span>
+                  Modern, responsive interface
+                </li>
+              </ul>
+            </div>
+            
+            <div class="border-t border-zinc-700 pt-6">
+              <h4 class="font-semibold mb-3">Technology</h4>
+              <div class="text-sm text-zinc-300 space-y-1">
+                <p><span class="text-zinc-400">Frontend:</span> HTML, JavaScript, Tailwind CSS</p>
+                <p><span class="text-zinc-400">Backend:</span> Rust with Tauri Framework</p>
+                <p><span class="text-zinc-400">Storage:</span> Local JSON file storage</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

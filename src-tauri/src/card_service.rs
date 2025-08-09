@@ -1,5 +1,5 @@
 use crate::models::{
-    BulkUpdateRequest, Card, CategoryStats, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, UpdateCardRequest,
+    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest,
 };
 use crate::spaced_repetition::SpacedRepetition;
 use crate::storage::Storage;
@@ -29,7 +29,7 @@ impl CardService {
             id: Uuid::new_v4().to_string(),
             front: request.front,
             back: request.back,
-            category: request.category,
+            tag: request.tag,
             created_at: Utc::now(),
             last_reviewed: None,
             next_review: Utc::now(), // Available immediately for first review
@@ -60,7 +60,7 @@ impl CardService {
         if let Some(card) = cards.get_mut(&id) {
             card.front = request.front;
             card.back = request.back;
-            card.category = request.category;
+            card.tag = request.tag;
 
             let updated_card = card.clone();
             self.save_cards(&cards)?;
@@ -128,45 +128,45 @@ impl CardService {
                 .retain(|card| card.front.to_lowercase().contains(&query_lower) || card.back.to_lowercase().contains(&query_lower));
         }
 
-        // Filter by category
-        if let Some(category) = &request.category {
-            filtered_cards.retain(|card| card.category.as_ref().map_or(false, |c| c == category));
+        // Filter by tag
+        if let Some(tag) = &request.tag {
+            filtered_cards.retain(|card| card.tag.as_ref().map_or(false, |c| c == tag));
         }
 
         Ok(filtered_cards)
     }
 
-    pub fn get_categories(&self) -> Result<Vec<String>, String> {
+    pub fn get_tags(&self) -> Result<Vec<String>, String> {
         let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
-        let mut categories: Vec<String> = cards
+        let mut tags: Vec<String> = cards
             .values()
-            .filter_map(|card| card.category.clone())
+            .filter_map(|card| card.tag.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
 
-        categories.sort();
-        Ok(categories)
+        tags.sort();
+        Ok(tags)
     }
 
-    pub fn get_category_stats(&self) -> Result<Vec<CategoryStats>, String> {
+    pub fn get_tag_stats(&self) -> Result<Vec<TagStats>, String> {
         let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
-        let mut category_map: HashMap<String, Vec<Card>> = HashMap::new();
+        let mut tag_map: HashMap<String, Vec<Card>> = HashMap::new();
 
-        // Group cards by category
+        // Group cards by tag
         for card in cards.values() {
-            let category = card.category.clone().unwrap_or_else(|| "Uncategorized".to_string());
-            category_map.entry(category).or_insert_with(Vec::new).push(card.clone());
+            let tag = card.tag.clone().unwrap_or_else(|| "Uncategorized".to_string());
+            tag_map.entry(tag).or_insert_with(Vec::new).push(card.clone());
         }
 
-        let mut stats: Vec<CategoryStats> = category_map
+        let mut stats: Vec<TagStats> = tag_map
             .into_iter()
             .map(|(name, cards)| {
                 let due_cards = SpacedRepetition::get_due_cards_from_vec(&cards);
                 let new_cards = cards.iter().filter(|c| c.review_count == 0).count();
                 let mature_cards = cards.iter().filter(|c| c.review_count >= 5).count();
 
-                CategoryStats {
+                TagStats {
                     name,
                     total_cards: cards.len(),
                     cards_due: due_cards.len(),
@@ -180,13 +180,13 @@ impl CardService {
         Ok(stats)
     }
 
-    pub fn bulk_update_category(&self, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
+    pub fn bulk_update_tag(&self, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
         let mut cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
         let mut updated_cards = Vec::new();
 
         for card_id in &request.card_ids {
             if let Some(card) = cards.get_mut(card_id) {
-                card.category = request.category.clone();
+                card.tag = request.tag.clone();
                 updated_cards.push(card.clone());
             }
         }
@@ -244,11 +244,11 @@ mod tests {
     }
 
     // Create test card request
-    fn create_test_request(front: &str, back: &str, category: Option<&str>) -> CreateCardRequest {
+    fn create_test_request(front: &str, back: &str, tag: Option<&str>) -> CreateCardRequest {
         CreateCardRequest {
             front: front.to_string(),
             back: back.to_string(),
-            category: category.map(|c| c.to_string()),
+            tag: tag.map(|c| c.to_string()),
         }
     }
 
@@ -264,7 +264,7 @@ mod tests {
         let card = result.unwrap();
         assert_eq!(card.front, "What is 2+2?");
         assert_eq!(card.back, "4");
-        assert_eq!(card.category, Some("Math".to_string()));
+        assert_eq!(card.tag, Some("Math".to_string()));
         assert_eq!(card.review_count, 0);
         assert_eq!(card.correct_count, 0);
         assert_eq!(card.interval, 0);
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_create_card_no_category() {
+    fn test_create_card_no_tag() {
         let (service, _temp_dir) = create_test_service();
         let request = create_test_request("Question", "Answer", None);
 
@@ -283,7 +283,7 @@ mod tests {
         assert!(result.is_ok());
 
         let card = result.unwrap();
-        assert_eq!(card.category, None);
+        assert_eq!(card.tag, None);
     }
 
     #[test]
@@ -356,7 +356,7 @@ mod tests {
         let update_request = UpdateCardRequest {
             front: "Updated Question".to_string(),
             back: "Updated Answer".to_string(),
-            category: Some("Updated Category".to_string()),
+            tag: Some("Updated Tag".to_string()),
         };
 
         let result = service.update_card(created_card.id.clone(), update_request);
@@ -366,7 +366,7 @@ mod tests {
         assert_eq!(updated_card.id, created_card.id);
         assert_eq!(updated_card.front, "Updated Question");
         assert_eq!(updated_card.back, "Updated Answer");
-        assert_eq!(updated_card.category, Some("Updated Category".to_string()));
+        assert_eq!(updated_card.tag, Some("Updated Tag".to_string()));
 
         // Verify persistence
         let retrieved_card = service.get_card(created_card.id).unwrap().unwrap();
@@ -380,7 +380,7 @@ mod tests {
         let update_request = UpdateCardRequest {
             front: "Updated".to_string(),
             back: "Updated".to_string(),
-            category: None,
+            tag: None,
         };
 
         let result = service.update_card("nonexistent-id".to_string(), update_request);
@@ -508,7 +508,7 @@ mod tests {
 
         let search_request = SearchRequest {
             query: Some("programming".to_string()),
-            category: None,
+            tag: None,
             tags: None,
         };
 
@@ -522,7 +522,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_search_cards_by_category() {
+    fn test_search_cards_by_tag() {
         let (service, _temp_dir) = create_test_service();
 
         service.create_card(create_test_request("Q1", "A1", Some("Math"))).unwrap();
@@ -531,7 +531,7 @@ mod tests {
 
         let search_request = SearchRequest {
             query: None,
-            category: Some("Math".to_string()),
+            tag: Some("Math".to_string()),
             tags: None,
         };
 
@@ -539,7 +539,7 @@ mod tests {
         assert_eq!(results.len(), 2);
 
         for card in results {
-            assert_eq!(card.category, Some("Math".to_string()));
+            assert_eq!(card.tag, Some("Math".to_string()));
         }
     }
 
@@ -560,7 +560,7 @@ mod tests {
 
         let search_request = SearchRequest {
             query: Some("addition".to_string()),
-            category: Some("Math".to_string()),
+            tag: Some("Math".to_string()),
             tags: None,
         };
 
@@ -571,7 +571,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_get_categories() {
+    fn test_get_tags() {
         let (service, _temp_dir) = create_test_service();
 
         service.create_card(create_test_request("Q1", "A1", Some("Math"))).unwrap();
@@ -579,40 +579,40 @@ mod tests {
         service.create_card(create_test_request("Q3", "A3", Some("Math"))).unwrap();
         service.create_card(create_test_request("Q4", "A4", None)).unwrap();
 
-        let categories = service.get_categories().unwrap();
-        assert_eq!(categories.len(), 2);
-        assert!(categories.contains(&"Math".to_string()));
-        assert!(categories.contains(&"Science".to_string()));
+        let tags = service.get_tags().unwrap();
+        assert_eq!(tags.len(), 2);
+        assert!(tags.contains(&"Math".to_string()));
+        assert!(tags.contains(&"Science".to_string()));
     }
 
     #[test]
     #[serial]
-    fn test_get_category_stats() {
+    fn test_get_tag_stats() {
         let (service, _temp_dir) = create_test_service();
 
-        // Create cards in different categories
+        // Create cards in different tags
         service.create_card(create_test_request("Q1", "A1", Some("Math"))).unwrap();
         service.create_card(create_test_request("Q2", "A2", Some("Math"))).unwrap();
         service.create_card(create_test_request("Q3", "A3", Some("Science"))).unwrap();
         service.create_card(create_test_request("Q4", "A4", None)).unwrap();
 
-        let category_stats = service.get_category_stats().unwrap();
-        assert_eq!(category_stats.len(), 3); // Math, Science, Uncategorized
+        let tag_stats = service.get_tag_stats().unwrap();
+        assert_eq!(tag_stats.len(), 3); // Math, Science, Uncategorized
 
-        let math_stats = category_stats.iter().find(|s| s.name == "Math").unwrap();
+        let math_stats = tag_stats.iter().find(|s| s.name == "Math").unwrap();
         assert_eq!(math_stats.total_cards, 2);
         assert_eq!(math_stats.cards_new, 2);
 
-        let science_stats = category_stats.iter().find(|s| s.name == "Science").unwrap();
+        let science_stats = tag_stats.iter().find(|s| s.name == "Science").unwrap();
         assert_eq!(science_stats.total_cards, 1);
 
-        let uncategorized_stats = category_stats.iter().find(|s| s.name == "Uncategorized").unwrap();
+        let uncategorized_stats = tag_stats.iter().find(|s| s.name == "Uncategorized").unwrap();
         assert_eq!(uncategorized_stats.total_cards, 1);
     }
 
     #[test]
     #[serial]
-    fn test_bulk_update_category() {
+    fn test_bulk_update_tag() {
         let (service, _temp_dir) = create_test_service();
 
         let card1 = service.create_card(create_test_request("Q1", "A1", Some("Old"))).unwrap();
@@ -621,10 +621,10 @@ mod tests {
 
         let bulk_request = BulkUpdateRequest {
             card_ids: vec![card1.id.clone(), card2.id.clone()],
-            category: Some("New Category".to_string()),
+            tag: Some("New Tag".to_string()),
         };
 
-        let result = service.bulk_update_category(bulk_request);
+        let result = service.bulk_update_tag(bulk_request);
         assert!(result.is_ok());
 
         let updated_cards = result.unwrap();
@@ -635,22 +635,22 @@ mod tests {
         let retrieved_card2 = service.get_card(card2.id).unwrap().unwrap();
         let retrieved_card3 = service.get_card(card3.id).unwrap().unwrap();
 
-        assert_eq!(retrieved_card1.category, Some("New Category".to_string()));
-        assert_eq!(retrieved_card2.category, Some("New Category".to_string()));
-        assert_eq!(retrieved_card3.category, Some("Other".to_string())); // Unchanged
+        assert_eq!(retrieved_card1.tag, Some("New Tag".to_string()));
+        assert_eq!(retrieved_card2.tag, Some("New Tag".to_string()));
+        assert_eq!(retrieved_card3.tag, Some("Other".to_string())); // Unchanged
     }
 
     #[test]
     #[serial]
-    fn test_bulk_update_category_nonexistent_cards() {
+    fn test_bulk_update_tag_nonexistent_cards() {
         let (service, _temp_dir) = create_test_service();
 
         let bulk_request = BulkUpdateRequest {
             card_ids: vec!["nonexistent-1".to_string(), "nonexistent-2".to_string()],
-            category: Some("New Category".to_string()),
+            tag: Some("New Tag".to_string()),
         };
 
-        let result = service.bulk_update_category(bulk_request);
+        let result = service.bulk_update_tag(bulk_request);
         assert!(result.is_ok());
 
         let updated_cards = result.unwrap();
@@ -715,6 +715,6 @@ mod tests {
         assert_eq!(cards.len(), 1);
         assert_eq!(cards[0].front, "Persistent");
         assert_eq!(cards[0].back, "Data");
-        assert_eq!(cards[0].category, Some("Test".to_string()));
+        assert_eq!(cards[0].tag, Some("Test".to_string()));
     }
 }

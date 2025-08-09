@@ -6,7 +6,7 @@ pub struct Card {
     pub id: String,
     pub front: String,
     pub back: String,
-    pub category: Option<String>,
+    pub tag: Option<String>,
     pub created_at: DateTime<Utc>,
     pub last_reviewed: Option<DateTime<Utc>>,
     pub next_review: DateTime<Utc>,
@@ -50,31 +50,31 @@ pub struct ReviewStats {
 pub struct CreateCardRequest {
     pub front: String,
     pub back: String,
-    pub category: Option<String>,
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateCardRequest {
     pub front: String,
     pub back: String,
-    pub category: Option<String>,
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchRequest {
     pub query: Option<String>,
-    pub category: Option<String>,
+    pub tag: Option<String>,
     pub tags: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BulkUpdateRequest {
     pub card_ids: Vec<String>,
-    pub category: Option<String>,
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CategoryStats {
+pub struct TagStats {
     pub name: String,
     pub total_cards: usize,
     pub cards_due: usize,
@@ -110,7 +110,7 @@ mod tests {
             id: "test-id".to_string(),
             front: "What is 2+2?".to_string(),
             back: "4".to_string(),
-            category: Some("Math".to_string()),
+            tag: Some("Math".to_string()),
             created_at: Utc::now(),
             last_reviewed: None,
             next_review: Utc::now(),
@@ -123,7 +123,7 @@ mod tests {
         assert_eq!(card.id, "test-id");
         assert_eq!(card.front, "What is 2+2?");
         assert_eq!(card.back, "4");
-        assert_eq!(card.category, Some("Math".to_string()));
+        assert_eq!(card.tag, Some("Math".to_string()));
         assert_eq!(card.interval, 0);
         assert_eq!(card.ease_factor, 2.5);
         assert_eq!(card.review_count, 0);
@@ -137,7 +137,7 @@ mod tests {
             id: "test-id".to_string(),
             front: "Question".to_string(),
             back: "Answer".to_string(),
-            category: None,
+            tag: None,
             created_at: Utc::now(),
             last_reviewed: None,
             next_review: Utc::now(),
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(card.id, deserialized.id);
         assert_eq!(card.front, deserialized.front);
         assert_eq!(card.back, deserialized.back);
-        assert_eq!(card.category, deserialized.category);
+        assert_eq!(card.tag, deserialized.tag);
         assert_eq!(card.interval, deserialized.interval);
         assert_eq!(card.ease_factor, deserialized.ease_factor);
     }
@@ -163,12 +163,12 @@ mod tests {
         let request = CreateCardRequest {
             front: "Question".to_string(),
             back: "Answer".to_string(),
-            category: Some("Test".to_string()),
+            tag: Some("Test".to_string()),
         };
 
         assert_eq!(request.front, "Question");
         assert_eq!(request.back, "Answer");
-        assert_eq!(request.category, Some("Test".to_string()));
+        assert_eq!(request.tag, Some("Test".to_string()));
     }
 
     #[test]
@@ -176,24 +176,24 @@ mod tests {
         let request = UpdateCardRequest {
             front: "Updated Question".to_string(),
             back: "Updated Answer".to_string(),
-            category: None,
+            tag: None,
         };
 
         assert_eq!(request.front, "Updated Question");
         assert_eq!(request.back, "Updated Answer");
-        assert_eq!(request.category, None);
+        assert_eq!(request.tag, None);
     }
 
     #[test]
     fn test_search_request() {
         let request = SearchRequest {
             query: Some("test".to_string()),
-            category: Some("Math".to_string()),
+            tag: Some("Math".to_string()),
             tags: None,
         };
 
         assert_eq!(request.query, Some("test".to_string()));
-        assert_eq!(request.category, Some("Math".to_string()));
+        assert_eq!(request.tag, Some("Math".to_string()));
         assert_eq!(request.tags, None);
     }
 
@@ -201,18 +201,18 @@ mod tests {
     fn test_bulk_update_request() {
         let request = BulkUpdateRequest {
             card_ids: vec!["id1".to_string(), "id2".to_string()],
-            category: Some("New Category".to_string()),
+            tag: Some("New Tag".to_string()),
         };
 
         assert_eq!(request.card_ids.len(), 2);
         assert_eq!(request.card_ids[0], "id1");
         assert_eq!(request.card_ids[1], "id2");
-        assert_eq!(request.category, Some("New Category".to_string()));
+        assert_eq!(request.tag, Some("New Tag".to_string()));
     }
 
     #[test]
-    fn test_category_stats() {
-        let stats = CategoryStats {
+    fn test_tag_stats() {
+        let stats = TagStats {
             name: "Math".to_string(),
             total_cards: 10,
             cards_due: 3,

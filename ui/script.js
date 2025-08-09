@@ -19,7 +19,7 @@ let lastDeletedCard = null; // Store last deleted card for undo
 // Organization state
 let allCards = []; // Cache of all cards for filtering
 let selectedCards = new Set(); // Selected card IDs for bulk operations
-let categories = []; // Available categories
+let tags = []; // Available tags
 
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
@@ -79,9 +79,9 @@ function showSection(sectionName) {
     // Load section-specific data
     if (sectionName === 'browse') {
         loadCards();
-        loadCategories();
-    } else if (sectionName === 'categories') {
-        loadCategoryStats();
+        loadTags();
+    } else if (sectionName === 'tags') {
+        loadTagStats();
     } else if (sectionName === 'stats') {
         loadDetailedStats();
     } else if (sectionName === 'review') {
@@ -112,11 +112,11 @@ function showSection(sectionName) {
 
     // Organization features
     document.getElementById('search-input').addEventListener('input', debounce(filterCards, 300));
-    document.getElementById('category-filter').addEventListener('change', filterCards);
+    document.getElementById('tag-filter').addEventListener('change', filterCards);
     document.getElementById('select-all').addEventListener('change', toggleSelectAll);
     document.getElementById('bulk-actions-btn').addEventListener('click', toggleBulkMode);
     document.getElementById('bulk-delete-btn').addEventListener('click', bulkDeleteCards);
-    document.getElementById('bulk-category-select').addEventListener('change', bulkUpdateCategory);
+    document.getElementById('bulk-tag-select').addEventListener('change', bulkUpdateTag);
 
     // Event delegation for delete buttons and card selection (since they're created dynamically)
     document.addEventListener('click', (e) => {
@@ -256,7 +256,7 @@ async function createCard(e) {
 
     const front = document.getElementById('card-front-input').value.trim();
     const back = document.getElementById('card-back-input').value.trim();
-    const category = document.getElementById('card-category-input').value.trim() || null;
+    const tag = document.getElementById('card-tag-input').value.trim() || null;
 
     if (!front || !back) {
         showError('Both front and back are required');
@@ -268,7 +268,7 @@ async function createCard(e) {
             request: {
                 front: front,
                 back: back,
-                category: category
+                tag: tag
             }
         });
 
@@ -320,7 +320,7 @@ function displayCards(cards) {
                 <div class="flex-1">
                     <div class="font-medium mb-1">${escapeHtml(card.front)}</div>
                     <div class="text-sm text-zinc-400 mb-2">${escapeHtml(card.back)}</div>
-                    ${card.category ? `<span class="inline-block bg-zinc-700 text-xs px-2 py-1 rounded">${escapeHtml(card.category)}</span>` : ''}
+                    ${card.tag ? `<span class="inline-block bg-zinc-700 text-xs px-2 py-1 rounded">${escapeHtml(card.tag)}</span>` : ''}
                 </div>
                 <button data-card-id="${card.id}" class="delete-card-btn text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors">
                     🗑️
@@ -436,7 +436,7 @@ async function undoDelete() {
             request: {
                 front: lastDeletedCard.front,
                 back: lastDeletedCard.back,
-                category: lastDeletedCard.category
+                tag: lastDeletedCard.tag
             }
         });
 
@@ -479,42 +479,42 @@ window.undoDelete = undoDelete;
 // ORGANIZATION FEATURES
 // ============================================================================
 
-// Load categories for dropdowns
-async function loadCategories() {
+// Load tags for dropdowns
+async function loadTags() {
     try {
-        categories = await invoke('get_categories');
-        updateCategoryDropdowns();
+        tags = await invoke('get_tags');
+        updateTagDropdowns();
     } catch (error) {
-        console.error('Failed to load categories:', error);
+        console.error('Failed to load tags:', error);
     }
 }
 
-function updateCategoryDropdowns() {
-    const categoryFilter = document.getElementById('category-filter');
-    const bulkCategorySelect = document.getElementById('bulk-category-select');
+function updateTagDropdowns() {
+    const tagFilter = document.getElementById('tag-filter');
+    const bulkTagSelect = document.getElementById('bulk-tag-select');
 
-    // Update category filter
-    categoryFilter.innerHTML = '<option value="">All Categories</option>';
-    categories.forEach(category => {
-        categoryFilter.innerHTML += `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    // Update tag filter
+    tagFilter.innerHTML = '<option value="">All Tags</option>';
+    tags.forEach(tag => {
+        tagFilter.innerHTML += `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`;
     });
 
-    // Update bulk category select
-    bulkCategorySelect.innerHTML = '<option value="">Change Category</option>';
-    categories.forEach(category => {
-        bulkCategorySelect.innerHTML += `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    // Update bulk tag select
+    bulkTagSelect.innerHTML = '<option value="">Change Tag</option>';
+    tags.forEach(tag => {
+        bulkTagSelect.innerHTML += `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`;
     });
 }
 
 // Search and filter cards
 async function filterCards() {
     const searchQuery = document.getElementById('search-input').value.trim();
-    const categoryFilter = document.getElementById('category-filter').value;
+    const tagFilter = document.getElementById('tag-filter').value;
 
     try {
         const searchRequest = {
             query: searchQuery || null,
-            category: categoryFilter || null,
+            tag: tagFilter || null,
             tags: null
         };
 
@@ -616,51 +616,51 @@ async function bulkDeleteCards() {
     }
 }
 
-async function bulkUpdateCategory() {
-    const bulkCategorySelect = document.getElementById('bulk-category-select');
-    const newCategory = bulkCategorySelect.value;
+async function bulkUpdateTag() {
+    const bulkTagSelect = document.getElementById('bulk-tag-select');
+    const newTag = bulkTagSelect.value;
 
-    if (!newCategory || selectedCards.size === 0) return;
+    if (!newTag || selectedCards.size === 0) return;
 
     const cardIds = Array.from(selectedCards);
 
     try {
         const request = {
             card_ids: cardIds,
-            category: newCategory
+            tag: newTag
         };
 
-        await invoke('bulk_update_category', { request });
-        showNotification(`Updated category for ${cardIds.length} cards`, 'success');
+        await invoke('bulk_update_tag', { request });
+        showNotification(`Updated tag for ${cardIds.length} cards`, 'success');
         selectedCards.clear();
         await loadCards();
-        bulkCategorySelect.value = '';
+        bulkTagSelect.value = '';
     } catch (error) {
-        console.error('Failed to update category:', error);
-        showNotification('Failed to update category', 'error');
+        console.error('Failed to update tag:', error);
+        showNotification('Failed to update tag', 'error');
     }
 }
 
-// Category statistics
-async function loadCategoryStats() {
+// Tag statistics
+async function loadTagStats() {
     try {
-        const categoryStats = await invoke('get_category_stats');
-        displayCategoryStats(categoryStats);
+        const tagStats = await invoke('get_tag_stats');
+        displayTagStats(tagStats);
     } catch (error) {
-        console.error('Failed to load category stats:', error);
-        showNotification('Failed to load category statistics', 'error');
+        console.error('Failed to load tag stats:', error);
+        showNotification('Failed to load tag statistics', 'error');
     }
 }
 
-function displayCategoryStats(categoryStats) {
-    const categoryStatsList = document.getElementById('category-stats-list');
+function displayTagStats(tagStats) {
+    const tagStatsList = document.getElementById('tag-stats-list');
 
-    if (categoryStats.length === 0) {
-        categoryStatsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No categories found.</p>';
+    if (tagStats.length === 0) {
+        tagStatsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No tags found.</p>';
         return;
     }
 
-    categoryStatsList.innerHTML = categoryStats.map(stats => `
+    tagStatsList.innerHTML = tagStats.map(stats => `
         <div class="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
             <div class="flex justify-between items-start mb-4">
                 <h3 class="text-lg font-medium">${escapeHtml(stats.name)}</h3>

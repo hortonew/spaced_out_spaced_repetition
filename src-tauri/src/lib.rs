@@ -24,9 +24,9 @@ pub fn run() {
             commands::get_review_stats,
             // Organization and search commands
             commands::search_cards,
-            commands::get_categories,
-            commands::get_category_stats,
-            commands::bulk_update_category,
+            commands::get_tags,
+            commands::get_tag_stats,
+            commands::bulk_update_tag,
             commands::delete_multiple_cards,
         ])
         .setup(|app| {

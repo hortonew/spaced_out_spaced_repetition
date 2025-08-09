@@ -62,7 +62,7 @@ mod tests {
             id: id.to_string(),
             front: format!("Question {}", id),
             back: format!("Answer {}", id),
-            category: Some("Test".to_string()),
+            tag: Some("Test".to_string()),
             created_at: Utc::now(),
             last_reviewed: None,
             next_review: Utc::now(),
@@ -112,7 +112,7 @@ mod tests {
         assert_eq!(loaded_card1.id, "1");
         assert_eq!(loaded_card1.front, "Question 1");
         assert_eq!(loaded_card1.back, "Answer 1");
-        assert_eq!(loaded_card1.category, Some("Test".to_string()));
+        assert_eq!(loaded_card1.tag, Some("Test".to_string()));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::card_service::CardService;
 use crate::models::{
-    BulkUpdateRequest, Card, CategoryStats, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, UpdateCardRequest,
+    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest,
 };
 use tauri::State;
 
@@ -54,18 +54,18 @@ pub async fn search_cards(service: State<'_, CardService>, request: SearchReques
 }
 
 #[tauri::command]
-pub async fn get_categories(service: State<'_, CardService>) -> Result<Vec<String>, String> {
-    service.get_categories()
+pub async fn get_tags(service: State<'_, CardService>) -> Result<Vec<String>, String> {
+    service.get_tags()
 }
 
 #[tauri::command]
-pub async fn get_category_stats(service: State<'_, CardService>) -> Result<Vec<CategoryStats>, String> {
-    service.get_category_stats()
+pub async fn get_tag_stats(service: State<'_, CardService>) -> Result<Vec<TagStats>, String> {
+    service.get_tag_stats()
 }
 
 #[tauri::command]
-pub async fn bulk_update_category(service: State<'_, CardService>, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
-    service.bulk_update_category(request)
+pub async fn bulk_update_tag(service: State<'_, CardService>, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
+    service.bulk_update_tag(request)
 }
 
 #[tauri::command]
@@ -96,7 +96,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "Test Question".to_string(),
             back: "Test Answer".to_string(),
-            category: Some("Test".to_string()),
+            tag: Some("Test".to_string()),
         };
 
         let result = service.create_card(request);
@@ -105,7 +105,7 @@ mod tests {
         let card = result.unwrap();
         assert_eq!(card.front, "Test Question");
         assert_eq!(card.back, "Test Answer");
-        assert_eq!(card.category, Some("Test".to_string()));
+        assert_eq!(card.tag, Some("Test".to_string()));
     }
 
     #[tokio::test]
@@ -122,7 +122,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "Q".to_string(),
             back: "A".to_string(),
-            category: None,
+            tag: None,
         };
         service.create_card(request).unwrap();
 
@@ -138,7 +138,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "Question".to_string(),
             back: "Answer".to_string(),
-            category: None,
+            tag: None,
         };
         let created_card = service.create_card(request).unwrap();
 
@@ -157,14 +157,14 @@ mod tests {
         let create_request = CreateCardRequest {
             front: "Original".to_string(),
             back: "Original".to_string(),
-            category: None,
+            tag: None,
         };
         let created_card = service.create_card(create_request).unwrap();
 
         let update_request = UpdateCardRequest {
             front: "Updated".to_string(),
             back: "Updated".to_string(),
-            category: Some("New Category".to_string()),
+            tag: Some("New Tag".to_string()),
         };
 
         let result = service.update_card(created_card.id, update_request);
@@ -173,7 +173,7 @@ mod tests {
         let updated_card = result.unwrap();
         assert_eq!(updated_card.front, "Updated");
         assert_eq!(updated_card.back, "Updated");
-        assert_eq!(updated_card.category, Some("New Category".to_string()));
+        assert_eq!(updated_card.tag, Some("New Tag".to_string()));
     }
 
     #[tokio::test]
@@ -183,7 +183,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "To Delete".to_string(),
             back: "Answer".to_string(),
-            category: None,
+            tag: None,
         };
         let created_card = service.create_card(request).unwrap();
 
@@ -203,7 +203,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "Review Test".to_string(),
             back: "Answer".to_string(),
-            category: None,
+            tag: None,
         };
         let created_card = service.create_card(request).unwrap();
 
@@ -222,7 +222,7 @@ mod tests {
         let request = CreateCardRequest {
             front: "Due Card".to_string(),
             back: "Answer".to_string(),
-            category: None,
+            tag: None,
         };
         service.create_card(request).unwrap();
 
@@ -251,13 +251,13 @@ mod tests {
         let request = CreateCardRequest {
             front: "Searchable content".to_string(),
             back: "Answer".to_string(),
-            category: Some("Test".to_string()),
+            tag: Some("Test".to_string()),
         };
         service.create_card(request).unwrap();
 
         let search_request = SearchRequest {
             query: Some("Searchable".to_string()),
-            category: None,
+            tag: None,
             tags: None,
         };
 
@@ -268,41 +268,41 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    async fn test_get_categories_command() {
+    async fn test_get_tags_command() {
         let (service, _temp_dir) = create_test_service();
         let request = CreateCardRequest {
             front: "Q".to_string(),
             back: "A".to_string(),
-            category: Some("TestCategory".to_string()),
+            tag: Some("TestTag".to_string()),
         };
         service.create_card(request).unwrap();
 
-        let result = service.get_categories();
+        let result = service.get_tags();
         assert!(result.is_ok());
 
-        let categories = result.unwrap();
-        assert_eq!(categories.len(), 1);
-        assert_eq!(categories[0], "TestCategory");
+        let tags = result.unwrap();
+        assert_eq!(tags.len(), 1);
+        assert_eq!(tags[0], "TestTag");
     }
 
     #[tokio::test]
     #[serial]
-    async fn test_bulk_update_category_command() {
+    async fn test_bulk_update_tag_command() {
         let (service, _temp_dir) = create_test_service();
         let card1 = service
             .create_card(CreateCardRequest {
                 front: "Q1".to_string(),
                 back: "A1".to_string(),
-                category: Some("Old".to_string()),
+                tag: Some("Old".to_string()),
             })
             .unwrap();
 
         let bulk_request = BulkUpdateRequest {
             card_ids: vec![card1.id],
-            category: Some("New".to_string()),
+            tag: Some("New".to_string()),
         };
 
-        let result = service.bulk_update_category(bulk_request);
+        let result = service.bulk_update_tag(bulk_request);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().len(), 1);
     }
@@ -315,7 +315,7 @@ mod tests {
             .create_card(CreateCardRequest {
                 front: "Q1".to_string(),
                 back: "A1".to_string(),
-                category: None,
+                tag: None,
             })
             .unwrap();
 
@@ -323,7 +323,7 @@ mod tests {
             .create_card(CreateCardRequest {
                 front: "Q2".to_string(),
                 back: "A2".to_string(),
-                category: None,
+                tag: None,
             })
             .unwrap();
 

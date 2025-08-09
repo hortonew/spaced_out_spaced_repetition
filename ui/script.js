@@ -17,6 +17,11 @@ let currentCard = null;
 let lastDeletedCard = null; // Store last deleted card for undo
 let lastDeletedCards = []; // Store multiple deleted cards for bulk undo
 
+// Edit mode state
+let editMode = false;
+let editingCardId = null;
+let editingFromReview = false; // Track if editing from review session
+
 // Notification state
 let notificationCountdowns = {
     success: null,
@@ -120,6 +125,26 @@ function showSection(sectionName) {
         resetBulkActions();
     }
 
+    // Reset edit state if navigating away from create section without completing edit
+    if (currentSection === 'create' && sectionName !== 'create' && editMode) {
+        // Only reset if user explicitly navigates away (not programmatically)
+        // This preserves the edit flow when returning from edit to review
+        if (sectionName === 'review' && editingFromReview) {
+            // Allow return to review from edit - don't reset state
+        } else {
+            // User navigated away from edit - reset state
+            editMode = false;
+            editingCardId = null;
+            editingFromReview = false;
+
+            // Reset UI
+            document.getElementById('create-section-title').textContent = 'Create New Card';
+            document.getElementById('create-card-submit').textContent = 'Create Card';
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            document.getElementById('create-card-form').reset();
+        }
+    }
+
     // Update navigation - use both selectors to be safe
     document.querySelectorAll('.nav-btn, [id^="nav-"]').forEach(btn => {
         btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700', 'ring-2', 'ring-emerald-400/30', 'shadow-lg', 'shadow-emerald-600/25');
@@ -166,6 +191,8 @@ function setupEventListeners() {
     // Review section
     document.getElementById('start-review').addEventListener('click', startReview);
     document.getElementById('show-answer-btn').addEventListener('click', showAnswer);
+    document.getElementById('review-edit-btn').addEventListener('click', editCurrentReviewCard);
+    document.getElementById('review-delete-btn').addEventListener('click', deleteCurrentReviewCard);
 
     // Rating buttons
     const ratingButtons = document.querySelectorAll('.rating-btn');
@@ -181,6 +208,9 @@ function setupEventListeners() {
 
     // Create card form
     document.getElementById('create-card-form').addEventListener('submit', createCard);
+
+    // Cancel edit button
+    document.getElementById('cancel-edit-btn').addEventListener('click', cancelEdit);
 
     // Browse cards
     document.getElementById('refresh-cards').addEventListener('click', loadCards);
@@ -218,6 +248,17 @@ function setupEventListeners() {
                 deleteCard(cardId);
             } else {
                 console.error('No card ID found on delete button');
+            }
+        } else if (e.target.closest('.edit-card-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const editBtn = e.target.closest('.edit-card-btn');
+            const cardId = editBtn.dataset.cardId;
+            console.log('Edit button clicked for card:', cardId);
+            if (cardId) {
+                editCard(cardId);
+            } else {
+                console.error('No card ID found on edit button');
             }
         }
     });
@@ -768,6 +809,70 @@ function finishReview() {
     loadReviewStats();
 }
 
+function editCurrentReviewCard() {
+    if (!currentCard) {
+        showError('No card selected');
+        return;
+    }
+
+    console.log('Editing current review card:', currentCard.id);
+
+    // Set flag to indicate we're editing from review
+    editingFromReview = true;
+
+    // Use the existing editCard function
+    editCard(currentCard.id);
+}
+
+async function deleteCurrentReviewCard() {
+    if (!currentCard) {
+        showError('No card selected');
+        return;
+    }
+
+    console.log('Deleting current review card:', currentCard.id);
+
+    try {
+        // Store for undo
+        lastDeletedCard = currentCard;
+
+        // Delete the card
+        await invoke('delete_card', { id: currentCard.id });
+
+        // Remove from current review session
+        currentReviewCards.splice(currentCardIndex, 1);
+
+        // Update the review session
+        if (currentReviewCards.length === 0) {
+            // No more cards to review
+            finishReview();
+            showSuccessWithUndo('Card deleted. Review session complete.');
+        } else {
+            // Adjust index if we're at the end
+            if (currentCardIndex >= currentReviewCards.length) {
+                currentCardIndex = currentReviewCards.length - 1;
+            }
+
+            // Show next card or finish if no more cards
+            if (currentCardIndex < currentReviewCards.length) {
+                showCurrentCard();
+            } else {
+                finishReview();
+            }
+
+            showSuccessWithUndo('Card deleted');
+        }
+
+        // Update stats and card list
+        await loadReviewStats();
+        await loadCards();
+
+    } catch (error) {
+        console.error('Failed to delete card during review:', error);
+        showError('Failed to delete card: ' + error);
+    }
+}
+
 async function createCard(e) {
     e.preventDefault();
 
@@ -781,17 +886,71 @@ async function createCard(e) {
     }
 
     try {
-        await invoke('create_card', {
-            request: {
-                front: front,
-                back: back,
-                tag: tag
+        if (editMode && editingCardId) {
+            // Update existing card
+            const updatedCard = await invoke('update_card', {
+                id: editingCardId,
+                request: {
+                    front: front,
+                    back: back,
+                    tag: tag
+                }
+            });
+
+            showSuccess('Card updated successfully!');
+
+            // If we were editing from review, update the current review session
+            if (editingFromReview) {
+                // Update the card in the current review session
+                const cardIndex = currentReviewCards.findIndex(card => card.id === editingCardId);
+                if (cardIndex !== -1) {
+                    currentReviewCards[cardIndex] = updatedCard;
+                }
+
+                // Update the current card if it's the one we just edited
+                if (currentCard && currentCard.id === editingCardId) {
+                    currentCard = updatedCard;
+                    // Refresh the card display with updated content
+                    document.getElementById('card-front-text').textContent = updatedCard.front;
+                    document.getElementById('card-back-text').textContent = updatedCard.back;
+                }
+
+                // Reset edit state
+                editMode = false;
+                editingCardId = null;
+                editingFromReview = false;
+
+                // Update UI
+                document.getElementById('create-section-title').textContent = 'Create New Card';
+                document.getElementById('create-card-submit').textContent = 'Create Card';
+                document.getElementById('cancel-edit-btn').classList.add('hidden');
+
+                // Clear form and return to review
+                document.getElementById('create-card-form').reset();
+                showSection('review');
+            } else {
+                // Regular edit from browse - use the existing cancelEdit flow
+                cancelEdit();
             }
-        });
+
+            // Update cards list and stats
+            await loadCards();
+            await loadReviewStats();
+            return; // Exit early for edit mode
+        } else {
+            // Create new card
+            await invoke('create_card', {
+                request: {
+                    front: front,
+                    back: back,
+                    tag: tag
+                }
+            });
+            showSuccess('Card created successfully!');
+        }
 
         // Clear form
         document.getElementById('create-card-form').reset();
-        showSuccess('Card created successfully!');
 
         // Scroll to top of the create section - use multiple strategies for reliability
         setTimeout(() => {
@@ -806,12 +965,74 @@ async function createCard(e) {
             });
         }, 300);
 
-        // Update stats
+        // Update stats and cards
         await loadReviewStats();
+        await loadCards();
 
     } catch (error) {
-        console.error('Failed to create card:', error);
-        showError('Failed to create card');
+        console.error('Failed to create/update card:', error);
+        showError(editMode ? 'Failed to update card' : 'Failed to create card');
+    }
+}
+
+async function editCard(cardId) {
+    try {
+        console.log('Editing card:', cardId);
+
+        // Get card data
+        const card = await invoke('get_card', { id: cardId });
+        if (!card) {
+            showError('Card not found');
+            return;
+        }
+
+        // Enter edit mode
+        editMode = true;
+        editingCardId = cardId;
+
+        // Update UI
+        document.getElementById('create-section-title').textContent = 'Edit Card';
+        document.getElementById('create-card-submit').textContent = 'Update Card';
+        document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+        // Populate form with existing data
+        document.getElementById('card-front-input').value = card.front;
+        document.getElementById('card-back-input').value = card.back;
+        document.getElementById('card-tag-input').value = card.tag || '';
+
+        // Switch to create section
+        showSection('create');
+
+        // Focus on the front input
+        setTimeout(() => {
+            document.getElementById('card-front-input').focus();
+        }, 100);
+
+    } catch (error) {
+        console.error('Failed to load card for editing:', error);
+        showError('Failed to load card for editing');
+    }
+}
+
+function cancelEdit() {
+    // Reset edit mode
+    editMode = false;
+    editingCardId = null;
+
+    // Update UI
+    document.getElementById('create-section-title').textContent = 'Create New Card';
+    document.getElementById('create-card-submit').textContent = 'Create Card';
+    document.getElementById('cancel-edit-btn').classList.add('hidden');
+
+    // Clear form
+    document.getElementById('create-card-form').reset();
+
+    // Return to the appropriate section
+    if (editingFromReview) {
+        editingFromReview = false;
+        showSection('review');
+    } else {
+        showSection('browse');
     }
 }
 
@@ -858,9 +1079,14 @@ function displayCards(cards) {
                     <div class="text-sm text-zinc-400 mb-2">${escapeHtml(card.back)}</div>
                     ${card.tag ? `<span class="inline-block bg-zinc-700 text-xs px-2 py-1 rounded">${escapeHtml(card.tag)}</span>` : ''}
                 </div>
-                <button data-card-id="${card.id}" class="delete-card-btn text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors">
-                    🗑️
-                </button>
+                <div class="flex space-x-1">
+                    <button data-card-id="${card.id}" class="edit-card-btn text-blue-400 hover:text-blue-300 p-1 rounded hover:bg-blue-400/10 transition-colors" title="Edit card">
+                        ✏️
+                    </button>
+                    <button data-card-id="${card.id}" class="delete-card-btn text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors" title="Delete card">
+                        🗑️
+                    </button>
+                </div>
             </div>
             <div class="text-xs text-zinc-500 mt-2">
                 Reviews: ${card.review_count} | Interval: ${card.interval} days

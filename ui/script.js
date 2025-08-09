@@ -26,9 +26,8 @@ async function initializeApp() {
     await loadReviewStats();
     await loadCards();
 
-    // Restore the last active section
-    const savedSection = localStorage.getItem('currentSection') || 'review';
-    showSection(savedSection);
+    // Always start on the review section
+    showSection('review');
 }
 
 function setupNavigation() {

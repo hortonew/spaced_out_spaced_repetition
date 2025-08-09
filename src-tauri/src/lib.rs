@@ -1,5 +1,11 @@
+mod card_service;
 mod commands;
-use commands::AppState;
+mod models;
+mod spaced_repetition;
+mod storage;
+
+use card_service::CardService;
+use storage::Storage;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -16,22 +22,16 @@ pub fn run() {
             commands::get_due_cards,
             commands::review_card,
             commands::get_review_stats,
-            // Legacy demo commands
-            commands::say_hello,
-            commands::my_custom_command
         ])
         .setup(|app| {
-            // Initialize app state with app handle
-            let app_state =
-                AppState::new(app.handle().clone()).expect("Failed to initialize app state");
-            app.manage(app_state);
+            // Initialize storage and card service
+            let storage = Storage::new(app.handle().clone()).expect("Failed to initialize storage");
+            let card_service = CardService::new(storage).expect("Failed to initialize card service");
+            app.manage(card_service);
 
             if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
+                app.handle()
+                    .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())?;
             }
             Ok(())
         })

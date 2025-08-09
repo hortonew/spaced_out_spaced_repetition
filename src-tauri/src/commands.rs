@@ -1,5 +1,7 @@
 use crate::card_service::CardService;
-use crate::models::{Card, CreateCardRequest, ReviewDifficulty, ReviewStats, UpdateCardRequest};
+use crate::models::{
+    BulkUpdateRequest, Card, CategoryStats, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, UpdateCardRequest,
+};
 use tauri::State;
 
 // Card management commands
@@ -43,4 +45,30 @@ pub async fn review_card(service: State<'_, CardService>, id: String, difficulty
 #[tauri::command]
 pub async fn get_review_stats(service: State<'_, CardService>) -> Result<ReviewStats, String> {
     service.get_review_stats()
+}
+
+// Organization and search commands
+#[tauri::command]
+pub async fn search_cards(service: State<'_, CardService>, request: SearchRequest) -> Result<Vec<Card>, String> {
+    service.search_cards(request)
+}
+
+#[tauri::command]
+pub async fn get_categories(service: State<'_, CardService>) -> Result<Vec<String>, String> {
+    service.get_categories()
+}
+
+#[tauri::command]
+pub async fn get_category_stats(service: State<'_, CardService>) -> Result<Vec<CategoryStats>, String> {
+    service.get_category_stats()
+}
+
+#[tauri::command]
+pub async fn bulk_update_category(service: State<'_, CardService>, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
+    service.bulk_update_category(request)
+}
+
+#[tauri::command]
+pub async fn delete_multiple_cards(service: State<'_, CardService>, card_ids: Vec<String>) -> Result<(), String> {
+    service.delete_multiple_cards(card_ids)
 }

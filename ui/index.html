@@ -2,49 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <!-- Tailwind v4 Play CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <title>Spaced Repetition App</title>
+  <style>
+    /* Custom styles for mobile safety areas and responsive navigation */
+    @media (max-width: 768px) {
+      .mobile-safe-top {
+        padding-top: max(env(safe-area-inset-top, 20px), 20px);
+      }
+      .mobile-safe-bottom {
+        padding-bottom: max(env(safe-area-inset-bottom, 20px), 20px);
+      }
+    }
+    
+    /* Responsive navigation styles */
+    .nav-grid {
+      display: grid;
+      gap: 0.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    }
+    
+    @media (max-width: 640px) {
+      .nav-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.25rem;
+      }
+      .nav-btn {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.25rem;
+        text-align: center;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .nav-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-  <main class="mx-auto max-w-2xl p-6">
+<body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased mobile-safe-top mobile-safe-bottom">
+  <main class="mx-auto max-w-2xl p-4 sm:p-6">
     <!-- Header -->
-    <header class="mb-8">
-      <h1 class="text-3xl font-bold tracking-tight mb-2">📚 Spaced Repetition</h1>
-      <p class="text-zinc-400">Learn efficiently with spaced repetition flashcards</p>
+    <header class="mb-6 sm:mb-8 pt-2 sm:pt-0">
+      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight mb-2">📚 Spaced Repetition</h1>
+      <p class="text-zinc-400 text-sm sm:text-base">Learn efficiently with spaced repetition flashcards</p>
     </header>
 
     <!-- Navigation -->
-    <nav class="mb-8">
-      <div class="flex space-x-2">
-        <button id="nav-review" class="nav-btn px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-400/30 shadow-lg shadow-emerald-600/25">Review</button>
-        <button id="nav-browse" class="nav-btn px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Browse Cards</button>
-        <button id="nav-create" class="nav-btn px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Create Card</button>
-        <button id="nav-stats" class="nav-btn px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Statistics</button>
+    <nav class="mb-6 sm:mb-8">
+      <div class="nav-grid">
+        <button id="nav-review" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-400/30 shadow-lg shadow-emerald-600/25">Review</button>
+        <button id="nav-browse" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Browse</button>
+        <button id="nav-create" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Create</button>
+        <button id="nav-categories" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Categories</button>
+        <button id="nav-stats" class="nav-btn px-2 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-zinc-700 hover:bg-zinc-600 hover:shadow-lg">Stats</button>
       </div>
     </nav>
 
     <!-- Review Section -->
     <section id="review-section" class="section">
-      <div class="rounded-2xl bg-zinc-900/60 p-6 shadow-lg ring-1 ring-white/10 mb-6">
+      <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10 mb-6">
         <div id="review-stats" class="grid grid-cols-2 gap-4 mb-6">
           <div class="text-center">
-            <div class="text-2xl font-bold text-emerald-400" id="cards-due">0</div>
-            <div class="text-sm text-zinc-400">Due Now</div>
+            <div class="text-xl sm:text-2xl font-bold text-emerald-400" id="cards-due">0</div>
+            <div class="text-xs sm:text-sm text-zinc-400">Due Now</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-blue-400" id="total-cards">0</div>
-            <div class="text-sm text-zinc-400">Total Cards</div>
+            <div class="text-xl sm:text-2xl font-bold text-blue-400" id="total-cards">0</div>
+            <div class="text-xs sm:text-sm text-zinc-400">Total Cards</div>
           </div>
         </div>
-        <button id="start-review" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+        <button id="start-review" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 sm:px-6 py-3 sm:py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
           Start Review Session
         </button>
       </div>
 
       <!-- Review Card Interface -->
-      <div id="review-card" class="rounded-2xl bg-zinc-900/60 p-6 shadow-lg ring-1 ring-white/10 hidden">
+      <div id="review-card" class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10 hidden">
         <div class="mb-4">
           <div class="text-sm text-zinc-400 mb-2">Card <span id="current-card-num">1</span> of <span id="total-review-cards">1</span></div>
           <div class="h-2 bg-zinc-800 rounded-full">
@@ -53,37 +90,79 @@
         </div>
         
         <div id="card-front" class="min-h-32 mb-6 p-4 bg-zinc-800/50 rounded-xl">
-          <div class="text-lg font-medium" id="card-front-text">Front of card</div>
+          <div class="text-base sm:text-lg font-medium" id="card-front-text">Front of card</div>
         </div>
         
         <div id="card-back" class="min-h-32 mb-6 p-4 bg-zinc-800/50 rounded-xl hidden">
-          <div class="text-lg" id="card-back-text">Back of card</div>
+          <div class="text-base sm:text-lg" id="card-back-text">Back of card</div>
         </div>
         
         <div id="show-answer-btn" class="text-center">
-          <button class="rounded-xl bg-blue-600 hover:bg-blue-700 px-6 py-3 font-medium transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:scale-105">
+          <button class="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 sm:px-6 py-3 font-medium transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:scale-105 w-full sm:w-auto">
             Show Answer
           </button>
         </div>
         
-        <div id="rating-buttons" class="grid grid-cols-4 gap-3 hidden">
-          <button data-difficulty="0" class="rating-btn rounded-lg px-4 py-3 font-medium transition-all duration-200 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/25 hover:shadow-red-600/40 hover:scale-105">Again</button>
-          <button data-difficulty="1" class="rating-btn rounded-lg px-4 py-3 font-medium transition-all duration-200 bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-105">Hard</button>
-          <button data-difficulty="2" class="rating-btn rounded-lg px-4 py-3 font-medium transition-all duration-200 bg-yellow-600 hover:bg-yellow-700 shadow-lg shadow-yellow-600/25 hover:shadow-yellow-600/40 hover:scale-105">Good</button>
-          <button data-difficulty="3" class="rating-btn rounded-lg px-4 py-3 font-medium transition-all duration-200 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25 hover:shadow-green-600/40 hover:scale-105">Easy</button>
+        <div id="rating-buttons" class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 hidden">
+          <button data-difficulty="0" class="rating-btn rounded-lg px-2 sm:px-4 py-3 font-medium transition-all duration-200 bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/25 hover:shadow-red-600/40 hover:scale-105 text-sm sm:text-base">Again</button>
+          <button data-difficulty="1" class="rating-btn rounded-lg px-2 sm:px-4 py-3 font-medium transition-all duration-200 bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-600/25 hover:shadow-orange-600/40 hover:scale-105 text-sm sm:text-base">Hard</button>
+          <button data-difficulty="2" class="rating-btn rounded-lg px-2 sm:px-4 py-3 font-medium transition-all duration-200 bg-yellow-600 hover:bg-yellow-700 shadow-lg shadow-yellow-600/25 hover:shadow-yellow-600/40 hover:scale-105 text-sm sm:text-base">Good</button>
+          <button data-difficulty="3" class="rating-btn rounded-lg px-2 sm:px-4 py-3 font-medium transition-all duration-200 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25 hover:shadow-green-600/40 hover:scale-105 text-sm sm:text-base">Easy</button>
         </div>
       </div>
     </section>
 
     <!-- Browse Cards Section -->
     <section id="browse-section" class="section hidden">
-      <div class="rounded-2xl bg-zinc-900/60 p-6 shadow-lg ring-1 ring-white/10">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold">All Cards</h2>
-          <button id="refresh-cards" class="rounded-lg bg-zinc-700 hover:bg-zinc-600 px-3 py-1 text-sm transition-colors">
-            Refresh
-          </button>
+      <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 space-y-3 sm:space-y-0">
+          <h2 class="text-lg sm:text-xl font-semibold">Browse Cards</h2>
+          <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <button id="bulk-actions-btn" class="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-sm transition-colors hidden">
+              Bulk Actions
+            </button>
+            <button id="refresh-cards" class="rounded-lg bg-zinc-700 hover:bg-zinc-600 px-3 py-2 text-sm transition-colors">
+              Refresh
+            </button>
+          </div>
         </div>
+
+        <!-- Search and Filter Controls -->
+        <div class="mb-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-zinc-300 mb-2">Search Cards</label>
+              <input id="search-input" type="text" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none" placeholder="Search text...">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-zinc-300 mb-2">Category</label>
+              <select id="category-filter" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Card Selection Controls -->
+          <div id="selection-controls" class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-zinc-800/50 rounded-lg hidden space-y-3 sm:space-y-0">
+            <div class="flex items-center space-x-4">
+              <label class="flex items-center">
+                <input type="checkbox" id="select-all" class="rounded bg-zinc-700 border-zinc-600 text-emerald-600 focus:ring-emerald-500">
+                <span class="ml-2 text-sm">Select All</span>
+              </label>
+              <span id="selected-count" class="text-sm text-zinc-400">0 selected</span>
+            </div>
+            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+              <select id="bulk-category-select" class="rounded-lg bg-zinc-700 border border-zinc-600 p-2 text-sm text-zinc-100">
+                <option value="">Change Category</option>
+              </select>
+              <button id="bulk-delete-btn" class="rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-sm transition-colors">
+                Delete Selected
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cards List -->
         <div id="cards-list" class="space-y-3">
           <!-- Cards will be populated here -->
         </div>
@@ -92,25 +171,35 @@
 
     <!-- Create Card Section -->
     <section id="create-section" class="section hidden">
-      <div class="rounded-2xl bg-zinc-900/60 p-6 shadow-lg ring-1 ring-white/10">
-        <h2 class="text-xl font-semibold mb-6">Create New Card</h2>
+      <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10">
+        <h2 class="text-lg sm:text-xl font-semibold mb-6">Create New Card</h2>
         <form id="create-card-form" class="space-y-4">
           <div>
             <label class="block text-sm font-medium mb-2">Front (Question)</label>
-            <textarea id="card-front-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none" rows="3" placeholder="Enter the question or prompt..."></textarea>
+            <textarea id="card-front-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="3" placeholder="Enter the question or prompt..."></textarea>
           </div>
           <div>
             <label class="block text-sm font-medium mb-2">Back (Answer)</label>
-            <textarea id="card-back-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none" rows="3" placeholder="Enter the answer or explanation..."></textarea>
+            <textarea id="card-back-input" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" rows="3" placeholder="Enter the answer or explanation..."></textarea>
           </div>
           <div>
             <label class="block text-sm font-medium mb-2">Category (Optional)</label>
-            <input id="card-category-input" type="text" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none" placeholder="e.g., Spanish, History, Programming...">
+            <input id="card-category-input" type="text" class="w-full rounded-lg bg-zinc-800 border border-zinc-700 p-3 text-zinc-100 focus:border-emerald-500 focus:outline-none text-sm sm:text-base" placeholder="e.g., Spanish, History...">
           </div>
-          <button type="submit" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02]">
+          <button type="submit" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 sm:px-6 py-3 sm:py-4 font-medium transition-all duration-200 shadow-lg shadow-emerald-600/25 hover:shadow-emerald-600/40 hover:scale-[1.02]">
             Create Card
           </button>
         </form>
+      </div>
+    </section>
+
+    <!-- Categories Section -->
+    <section id="categories-section" class="section hidden">
+      <div class="rounded-2xl bg-zinc-900/60 p-4 sm:p-6 shadow-lg ring-1 ring-white/10">
+        <h2 class="text-lg sm:text-xl font-semibold mb-6">Category Statistics</h2>
+        <div id="category-stats-list" class="space-y-3">
+          <!-- Category stats will be populated here -->
+        </div>
       </div>
     </section>
 

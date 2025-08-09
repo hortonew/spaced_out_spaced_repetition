@@ -59,3 +59,25 @@ pub struct UpdateCardRequest {
     pub back: String,
     pub category: Option<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchRequest {
+    pub query: Option<String>,
+    pub category: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BulkUpdateRequest {
+    pub card_ids: Vec<String>,
+    pub category: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CategoryStats {
+    pub name: String,
+    pub total_cards: usize,
+    pub cards_due: usize,
+    pub cards_new: usize,
+    pub cards_mature: usize,
+}

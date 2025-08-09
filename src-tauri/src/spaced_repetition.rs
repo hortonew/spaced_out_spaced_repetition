@@ -58,6 +58,11 @@ impl SpacedRepetition {
         cards.values().filter(|card| Self::is_due(card)).cloned().collect()
     }
 
+    /// Get cards that are due for review from a vector
+    pub fn get_due_cards_from_vec(cards: &[Card]) -> Vec<Card> {
+        cards.iter().filter(|card| Self::is_due(card)).cloned().collect()
+    }
+
     /// Calculate review statistics
     pub fn calculate_stats(cards: &std::collections::HashMap<String, Card>) -> crate::models::ReviewStats {
         let total_cards = cards.len();

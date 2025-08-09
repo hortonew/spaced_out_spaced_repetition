@@ -1,4 +1,6 @@
-use crate::models::{Card, CreateCardRequest, ReviewDifficulty, ReviewStats, UpdateCardRequest};
+use crate::models::{
+    BulkUpdateRequest, Card, CategoryStats, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, UpdateCardRequest,
+};
 use crate::spaced_repetition::SpacedRepetition;
 use crate::storage::Storage;
 use chrono::Utc;
@@ -112,6 +114,105 @@ impl CardService {
     pub fn get_review_stats(&self) -> Result<ReviewStats, String> {
         let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
         Ok(SpacedRepetition::calculate_stats(&cards))
+    }
+
+    // Organization and search methods
+    pub fn search_cards(&self, request: SearchRequest) -> Result<Vec<Card>, String> {
+        let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let mut filtered_cards: Vec<Card> = cards.values().cloned().collect();
+
+        // Filter by query (searches front and back text)
+        if let Some(query) = &request.query {
+            let query_lower = query.to_lowercase();
+            filtered_cards
+                .retain(|card| card.front.to_lowercase().contains(&query_lower) || card.back.to_lowercase().contains(&query_lower));
+        }
+
+        // Filter by category
+        if let Some(category) = &request.category {
+            filtered_cards.retain(|card| card.category.as_ref().map_or(false, |c| c == category));
+        }
+
+        Ok(filtered_cards)
+    }
+
+    pub fn get_categories(&self) -> Result<Vec<String>, String> {
+        let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let mut categories: Vec<String> = cards
+            .values()
+            .filter_map(|card| card.category.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        categories.sort();
+        Ok(categories)
+    }
+
+    pub fn get_category_stats(&self) -> Result<Vec<CategoryStats>, String> {
+        let cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let mut category_map: HashMap<String, Vec<Card>> = HashMap::new();
+
+        // Group cards by category
+        for card in cards.values() {
+            let category = card.category.clone().unwrap_or_else(|| "Uncategorized".to_string());
+            category_map.entry(category).or_insert_with(Vec::new).push(card.clone());
+        }
+
+        let mut stats: Vec<CategoryStats> = category_map
+            .into_iter()
+            .map(|(name, cards)| {
+                let due_cards = SpacedRepetition::get_due_cards_from_vec(&cards);
+                let new_cards = cards.iter().filter(|c| c.review_count == 0).count();
+                let mature_cards = cards.iter().filter(|c| c.review_count >= 5).count();
+
+                CategoryStats {
+                    name,
+                    total_cards: cards.len(),
+                    cards_due: due_cards.len(),
+                    cards_new: new_cards,
+                    cards_mature: mature_cards,
+                }
+            })
+            .collect();
+
+        stats.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(stats)
+    }
+
+    pub fn bulk_update_category(&self, request: BulkUpdateRequest) -> Result<Vec<Card>, String> {
+        let mut cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let mut updated_cards = Vec::new();
+
+        for card_id in &request.card_ids {
+            if let Some(card) = cards.get_mut(card_id) {
+                card.category = request.category.clone();
+                updated_cards.push(card.clone());
+            }
+        }
+
+        if !updated_cards.is_empty() {
+            self.save_cards(&cards)?;
+        }
+
+        Ok(updated_cards)
+    }
+
+    pub fn delete_multiple_cards(&self, card_ids: Vec<String>) -> Result<(), String> {
+        let mut cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let mut deleted_count = 0;
+
+        for card_id in card_ids {
+            if cards.remove(&card_id).is_some() {
+                deleted_count += 1;
+            }
+        }
+
+        if deleted_count > 0 {
+            self.save_cards(&cards)?;
+        }
+
+        Ok(())
     }
 
     // Helper method to save cards

@@ -22,6 +22,12 @@ pub fn run() {
             commands::get_due_cards,
             commands::review_card,
             commands::get_review_stats,
+            // Organization and search commands
+            commands::search_cards,
+            commands::get_categories,
+            commands::get_category_stats,
+            commands::bulk_update_category,
+            commands::delete_multiple_cards,
         ])
         .setup(|app| {
             // Initialize storage and card service

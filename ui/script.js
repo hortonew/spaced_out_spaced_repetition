@@ -16,6 +16,11 @@ let currentCardIndex = 0;
 let currentCard = null;
 let lastDeletedCard = null; // Store last deleted card for undo
 
+// Organization state
+let allCards = []; // Cache of all cards for filtering
+let selectedCards = new Set(); // Selected card IDs for bulk operations
+let categories = []; // Available categories
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
@@ -74,6 +79,9 @@ function showSection(sectionName) {
     // Load section-specific data
     if (sectionName === 'browse') {
         loadCards();
+        loadCategories();
+    } else if (sectionName === 'categories') {
+        loadCategoryStats();
     } else if (sectionName === 'stats') {
         loadDetailedStats();
     } else if (sectionName === 'review') {
@@ -102,7 +110,15 @@ function showSection(sectionName) {
     // Browse cards
     document.getElementById('refresh-cards').addEventListener('click', loadCards);
 
-    // Event delegation for delete buttons (since they're created dynamically)
+    // Organization features
+    document.getElementById('search-input').addEventListener('input', debounce(filterCards, 300));
+    document.getElementById('category-filter').addEventListener('change', filterCards);
+    document.getElementById('select-all').addEventListener('change', toggleSelectAll);
+    document.getElementById('bulk-actions-btn').addEventListener('click', toggleBulkMode);
+    document.getElementById('bulk-delete-btn').addEventListener('click', bulkDeleteCards);
+    document.getElementById('bulk-category-select').addEventListener('change', bulkUpdateCategory);
+
+    // Event delegation for delete buttons and card selection (since they're created dynamically)
     document.addEventListener('click', (e) => {
         if (e.target.closest('.delete-card-btn')) {
             e.preventDefault();
@@ -115,6 +131,19 @@ function showSection(sectionName) {
             } else {
                 console.error('No card ID found on delete button');
             }
+        }
+    });
+
+    // Event delegation for card selection checkboxes
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('card-checkbox')) {
+            const cardId = e.target.dataset.cardId;
+            if (e.target.checked) {
+                selectedCards.add(cardId);
+            } else {
+                selectedCards.delete(cardId);
+            }
+            updateSelectionControls();
         }
     });
 }
@@ -261,49 +290,50 @@ async function loadCards() {
     try {
         const cards = await invoke('get_cards');
         console.log('Loaded cards from backend:', cards.length, 'cards');
-        console.log('Card details:', cards);
-
-        const cardsList = document.getElementById('cards-list');
-
-        if (cards.length === 0) {
-            cardsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No cards yet. Create your first card!</p>';
-            return;
-        }
-
-        cardsList.innerHTML = cards.map(card => {
-            console.log('Creating HTML for card:', card.id);
-            return `
-            <div class="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
-                <div class="flex justify-between items-start mb-2">
-                    <div class="flex-1">
-                        <div class="font-medium mb-1">${escapeHtml(card.front)}</div>
-                        <div class="text-sm text-zinc-400 mb-2">${escapeHtml(card.back)}</div>
-                        ${card.category ? `<span class="inline-block bg-zinc-700 text-xs px-2 py-1 rounded">${escapeHtml(card.category)}</span>` : ''}
-                    </div>
-                    <button data-card-id="${card.id}" class="delete-card-btn text-red-400 hover:text-red-300 ml-2 p-1 rounded hover:bg-red-400/10 transition-colors">
-                        🗑️
-                    </button>
-                </div>
-                <div class="text-xs text-zinc-500 mt-2">
-                    Reviews: ${card.review_count} | Interval: ${card.interval} days
-                    ${card.next_review ? `| Next: ${new Date(card.next_review).toLocaleDateString()}` : ''}
-                </div>
-            </div>`;
-        }).join('');
-
-        // Verify delete buttons were created
-        const deleteButtons = document.querySelectorAll('.delete-card-btn');
-        console.log('Delete buttons found after creation:', deleteButtons.length);
-        deleteButtons.forEach((btn, index) => {
-            console.log(`Delete button ${index}:`, btn.dataset.cardId);
-        });
-
-        console.log('Cards loaded, delete buttons should work via event delegation');
-
+        allCards = cards; // Cache for filtering
+        displayCards(cards);
     } catch (error) {
-        console.error('Failed to load cards:', error);
-        showError('Failed to load cards');
+        console.error('Error loading cards:', error);
+        showNotification('Failed to load cards', 'error');
     }
+}
+
+function displayCards(cards) {
+    const cardsList = document.getElementById('cards-list');
+    const bulkActionsBtn = document.getElementById('bulk-actions-btn');
+
+    if (cards.length === 0) {
+        cardsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No cards found.</p>';
+        bulkActionsBtn.classList.add('hidden');
+        return;
+    }
+
+    bulkActionsBtn.classList.remove('hidden');
+
+    cardsList.innerHTML = cards.map(card => {
+        const isSelected = selectedCards.has(card.id);
+        return `
+        <div class="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
+            <div class="flex items-start space-x-3">
+                <input type="checkbox" class="card-checkbox mt-1 rounded bg-zinc-700 border-zinc-600 text-emerald-600 focus:ring-emerald-500" 
+                       data-card-id="${card.id}" ${isSelected ? 'checked' : ''}>
+                <div class="flex-1">
+                    <div class="font-medium mb-1">${escapeHtml(card.front)}</div>
+                    <div class="text-sm text-zinc-400 mb-2">${escapeHtml(card.back)}</div>
+                    ${card.category ? `<span class="inline-block bg-zinc-700 text-xs px-2 py-1 rounded">${escapeHtml(card.category)}</span>` : ''}
+                </div>
+                <button data-card-id="${card.id}" class="delete-card-btn text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10 transition-colors">
+                    🗑️
+                </button>
+            </div>
+            <div class="text-xs text-zinc-500 mt-2">
+                Reviews: ${card.review_count} | Interval: ${card.interval} days
+                ${card.next_review ? `| Next: ${new Date(card.next_review).toLocaleDateString()}` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    updateSelectionControls();
 }
 
 async function deleteCard(cardId) {
@@ -444,3 +474,216 @@ function escapeHtml(text) {
 
 // Make functions globally available for onclick handlers
 window.undoDelete = undoDelete;
+
+// ============================================================================
+// ORGANIZATION FEATURES
+// ============================================================================
+
+// Load categories for dropdowns
+async function loadCategories() {
+    try {
+        categories = await invoke('get_categories');
+        updateCategoryDropdowns();
+    } catch (error) {
+        console.error('Failed to load categories:', error);
+    }
+}
+
+function updateCategoryDropdowns() {
+    const categoryFilter = document.getElementById('category-filter');
+    const bulkCategorySelect = document.getElementById('bulk-category-select');
+
+    // Update category filter
+    categoryFilter.innerHTML = '<option value="">All Categories</option>';
+    categories.forEach(category => {
+        categoryFilter.innerHTML += `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    });
+
+    // Update bulk category select
+    bulkCategorySelect.innerHTML = '<option value="">Change Category</option>';
+    categories.forEach(category => {
+        bulkCategorySelect.innerHTML += `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    });
+}
+
+// Search and filter cards
+async function filterCards() {
+    const searchQuery = document.getElementById('search-input').value.trim();
+    const categoryFilter = document.getElementById('category-filter').value;
+
+    try {
+        const searchRequest = {
+            query: searchQuery || null,
+            category: categoryFilter || null,
+            tags: null
+        };
+
+        const filteredCards = await invoke('search_cards', { request: searchRequest });
+        displayCards(filteredCards);
+    } catch (error) {
+        console.error('Failed to filter cards:', error);
+        showNotification('Failed to filter cards', 'error');
+    }
+}
+
+// Debounce function for search input
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Bulk operations
+function toggleBulkMode() {
+    const selectionControls = document.getElementById('selection-controls');
+    const isVisible = !selectionControls.classList.contains('hidden');
+
+    if (isVisible) {
+        // Hide bulk mode
+        selectionControls.classList.add('hidden');
+        selectedCards.clear();
+        displayCards(allCards);
+    } else {
+        // Show bulk mode
+        selectionControls.classList.remove('hidden');
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const cardCheckboxes = document.querySelectorAll('.card-checkbox');
+
+    if (selectAllCheckbox.checked) {
+        cardCheckboxes.forEach(checkbox => {
+            checkbox.checked = true;
+            selectedCards.add(checkbox.dataset.cardId);
+        });
+    } else {
+        cardCheckboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            selectedCards.delete(checkbox.dataset.cardId);
+        });
+    }
+
+    updateSelectionControls();
+}
+
+function updateSelectionControls() {
+    const selectedCount = document.getElementById('selected-count');
+    const selectAllCheckbox = document.getElementById('select-all');
+    const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+
+    selectedCount.textContent = `${selectedCards.size} selected`;
+
+    // Update select all checkbox state
+    const cardCheckboxes = document.querySelectorAll('.card-checkbox');
+    const checkedBoxes = document.querySelectorAll('.card-checkbox:checked');
+
+    if (checkedBoxes.length === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (checkedBoxes.length === cardCheckboxes.length) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+    }
+
+    // Enable/disable bulk actions
+    bulkDeleteBtn.disabled = selectedCards.size === 0;
+}
+
+async function bulkDeleteCards() {
+    if (selectedCards.size === 0) return;
+
+    const cardIds = Array.from(selectedCards);
+
+    try {
+        await invoke('delete_multiple_cards', { cardIds });
+        showNotification(`Deleted ${cardIds.length} cards successfully`, 'success');
+        selectedCards.clear();
+        await loadCards();
+        await loadReviewStats();
+    } catch (error) {
+        console.error('Failed to delete cards:', error);
+        showNotification('Failed to delete cards', 'error');
+    }
+}
+
+async function bulkUpdateCategory() {
+    const bulkCategorySelect = document.getElementById('bulk-category-select');
+    const newCategory = bulkCategorySelect.value;
+
+    if (!newCategory || selectedCards.size === 0) return;
+
+    const cardIds = Array.from(selectedCards);
+
+    try {
+        const request = {
+            card_ids: cardIds,
+            category: newCategory
+        };
+
+        await invoke('bulk_update_category', { request });
+        showNotification(`Updated category for ${cardIds.length} cards`, 'success');
+        selectedCards.clear();
+        await loadCards();
+        bulkCategorySelect.value = '';
+    } catch (error) {
+        console.error('Failed to update category:', error);
+        showNotification('Failed to update category', 'error');
+    }
+}
+
+// Category statistics
+async function loadCategoryStats() {
+    try {
+        const categoryStats = await invoke('get_category_stats');
+        displayCategoryStats(categoryStats);
+    } catch (error) {
+        console.error('Failed to load category stats:', error);
+        showNotification('Failed to load category statistics', 'error');
+    }
+}
+
+function displayCategoryStats(categoryStats) {
+    const categoryStatsList = document.getElementById('category-stats-list');
+
+    if (categoryStats.length === 0) {
+        categoryStatsList.innerHTML = '<p class="text-zinc-400 text-center py-8">No categories found.</p>';
+        return;
+    }
+
+    categoryStatsList.innerHTML = categoryStats.map(stats => `
+        <div class="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-medium">${escapeHtml(stats.name)}</h3>
+                <span class="text-sm text-zinc-400">${stats.total_cards} cards</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                    <div class="text-xl font-bold text-emerald-400">${stats.cards_due}</div>
+                    <div class="text-xs text-zinc-400">Due</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-blue-400">${stats.cards_new}</div>
+                    <div class="text-xs text-zinc-400">New</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-yellow-400">${stats.total_cards - stats.cards_new - stats.cards_mature}</div>
+                    <div class="text-xs text-zinc-400">Learning</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-purple-400">${stats.cards_mature}</div>
+                    <div class="text-xs text-zinc-400">Mature</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}

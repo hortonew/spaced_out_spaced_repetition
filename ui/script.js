@@ -16,6 +16,12 @@ let currentCardIndex = 0;
 let currentCard = null;
 let lastDeletedCard = null; // Store last deleted card for undo
 
+// Notification state
+let notificationCountdowns = {
+    success: null,
+    error: null
+};
+
 // Organization state
 let allCards = []; // Cache of all cards for filtering
 let selectedCards = new Set(); // Selected card IDs for bulk operations
@@ -396,30 +402,99 @@ async function deleteCard(cardId) {
 
 function showSuccess(message) {
     const successEl = document.getElementById('success-message');
-    successEl.textContent = message;
+    const timeout = CONFIG.SUCCESS_TIMEOUT;
+    let timeLeft = timeout / 1000; // Convert to seconds with decimals
+
+    // Clear any existing countdown
+    if (notificationCountdowns.success) {
+        clearInterval(notificationCountdowns.success);
+    }
+
+    // Create the message structure once with countdown
+    successEl.innerHTML = `
+        <div class="flex items-center justify-between">
+            <span>${message}</span>
+            <span id="countdown-timer" class="text-sm opacity-75 ml-3">${timeLeft.toFixed(1)}s</span>
+        </div>
+    `;
+
     successEl.classList.remove('hidden');
+
+    // Get reference to the countdown timer element
+    const countdownEl = document.getElementById('countdown-timer');
+
+    // Update only the countdown text every 100ms for smooth decimal countdown
+    notificationCountdowns.success = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft > 0 && countdownEl) {
+            countdownEl.textContent = `${timeLeft.toFixed(1)}s`;
+        } else {
+            clearInterval(notificationCountdowns.success);
+            notificationCountdowns.success = null;
+        }
+    }, 100);
+
     setTimeout(() => {
         successEl.classList.add('hidden');
-    }, CONFIG.SUCCESS_TIMEOUT);
+        if (notificationCountdowns.success) {
+            clearInterval(notificationCountdowns.success);
+            notificationCountdowns.success = null;
+        }
+    }, timeout);
 }
 
 function showSuccessWithUndo(message) {
     const successEl = document.getElementById('success-message');
+    const timeout = CONFIG.UNDO_TIMEOUT;
+    let timeLeft = timeout / 1000; // Convert to seconds with decimals
+
+    // Clear any existing countdown
+    if (notificationCountdowns.success) {
+        clearInterval(notificationCountdowns.success);
+    }
+
+    // Create the message structure once with countdown and buttons
     successEl.innerHTML = `
         <div class="flex items-center justify-between">
             <span>${message}</span>
-            <button onclick="undoDelete()" 
-                    class="ml-3 px-4 py-2 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors font-medium min-h-[40px] min-w-[60px]">
-                Undo
-            </button>
+            <div class="flex items-center space-x-2">
+                <span id="countdown-timer" class="text-sm opacity-75">${timeLeft.toFixed(1)}s</span>
+                <button onclick="undoDelete()" 
+                        class="px-3 py-2 bg-white/20 hover:bg-white/30 rounded text-sm transition-colors font-medium">
+                    Undo
+                </button>
+                <button onclick="dismissUndo()" 
+                        class="px-3 py-2 bg-zinc-600/50 hover:bg-zinc-500/50 rounded text-sm transition-colors">
+                    Dismiss
+                </button>
+            </div>
         </div>
     `;
+
     successEl.classList.remove('hidden');
+
+    // Get reference to the countdown timer element
+    const countdownEl = document.getElementById('countdown-timer');
+
+    // Update only the countdown text every 100ms for smooth decimal countdown
+    notificationCountdowns.success = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft > 0 && countdownEl) {
+            countdownEl.textContent = `${timeLeft.toFixed(1)}s`;
+        } else {
+            clearInterval(notificationCountdowns.success);
+            notificationCountdowns.success = null;
+        }
+    }, 100);
 
     // Auto-hide after configured time (longer for undo)
     setTimeout(() => {
         successEl.classList.add('hidden');
-    }, CONFIG.UNDO_TIMEOUT);
+        if (notificationCountdowns.success) {
+            clearInterval(notificationCountdowns.success);
+            notificationCountdowns.success = null;
+        }
+    }, timeout);
 }
 
 async function undoDelete() {
@@ -427,6 +502,13 @@ async function undoDelete() {
         showError('No card to restore');
         return;
     }
+
+    // Clear the countdown and hide the undo message immediately
+    if (notificationCountdowns.success) {
+        clearInterval(notificationCountdowns.success);
+        notificationCountdowns.success = null;
+    }
+    document.getElementById('success-message').classList.add('hidden');
 
     try {
         console.log('Undoing delete for card:', lastDeletedCard.front);
@@ -443,9 +525,6 @@ async function undoDelete() {
         await loadCards();
         await loadReviewStats();
 
-        // Hide the undo message
-        document.getElementById('success-message').classList.add('hidden');
-
         showSuccess('Card restored successfully');
         console.log('Card restored successfully');
 
@@ -457,13 +536,59 @@ async function undoDelete() {
     }
 }
 
+function dismissUndo() {
+    // Clear the countdown and hide the undo message immediately
+    if (notificationCountdowns.success) {
+        clearInterval(notificationCountdowns.success);
+        notificationCountdowns.success = null;
+    }
+    document.getElementById('success-message').classList.add('hidden');
+
+    // Clear the stored card since user dismissed the undo option
+    lastDeletedCard = null;
+}
+
 function showError(message) {
     const errorEl = document.getElementById('error-message');
-    errorEl.textContent = message;
+    const timeout = CONFIG.ERROR_TIMEOUT;
+    let timeLeft = timeout / 1000; // Convert to seconds with decimals
+
+    // Clear any existing countdown
+    if (notificationCountdowns.error) {
+        clearInterval(notificationCountdowns.error);
+    }
+
+    // Create the message structure once with countdown
+    errorEl.innerHTML = `
+        <div class="flex items-center justify-between">
+            <span>${message}</span>
+            <span id="error-countdown-timer" class="text-sm opacity-75 ml-3">${timeLeft.toFixed(1)}s</span>
+        </div>
+    `;
+
     errorEl.classList.remove('hidden');
+
+    // Get reference to the countdown timer element
+    const countdownEl = document.getElementById('error-countdown-timer');
+
+    // Update only the countdown text every 100ms for smooth decimal countdown
+    notificationCountdowns.error = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft > 0 && countdownEl) {
+            countdownEl.textContent = `${timeLeft.toFixed(1)}s`;
+        } else {
+            clearInterval(notificationCountdowns.error);
+            notificationCountdowns.error = null;
+        }
+    }, 100);
+
     setTimeout(() => {
         errorEl.classList.add('hidden');
-    }, CONFIG.ERROR_TIMEOUT);
+        if (notificationCountdowns.error) {
+            clearInterval(notificationCountdowns.error);
+            notificationCountdowns.error = null;
+        }
+    }, timeout);
 }
 
 function escapeHtml(text) {
@@ -474,6 +599,7 @@ function escapeHtml(text) {
 
 // Make functions globally available for onclick handlers
 window.undoDelete = undoDelete;
+window.dismissUndo = dismissUndo;
 
 // ============================================================================
 // ORGANIZATION FEATURES

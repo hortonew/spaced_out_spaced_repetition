@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initializeApp() {
+    // Set up window size for desktop platforms
+    await setupWindowSize();
+
     setupNavigation();
     setupEventListeners();
     await loadReviewStats();
@@ -39,6 +42,38 @@ async function initializeApp() {
 
     // Always start on the review section
     showSection('review');
+}
+
+async function setupWindowSize() {
+    try {
+        // Check if we're running in Tauri (desktop) environment
+        if (window.__TAURI__ && window.__TAURI__.window) {
+            const { appWindow } = window.__TAURI__.window;
+            const { availableMonitors, currentMonitor } = window.__TAURI__.window;
+
+            // Get current monitor information
+            const monitor = await currentMonitor();
+            if (monitor) {
+                // Calculate 80% of screen height, but keep reasonable width
+                const targetHeight = Math.floor(monitor.size.height * 0.8);
+                const targetWidth = Math.min(1200, Math.floor(monitor.size.width * 0.7)); // Max 1200px wide or 70% of screen width
+
+                // Set the window size
+                await appWindow.setSize({
+                    width: targetWidth,
+                    height: targetHeight
+                });
+
+                // Center the window
+                await appWindow.center();
+
+                console.log(`Window resized to ${targetWidth}x${targetHeight} (80% of screen height)`);
+            }
+        }
+    } catch (error) {
+        // If window resizing fails, just continue - this is non-critical
+        console.log('Window resizing not available or failed:', error);
+    }
 }
 
 function setupNavigation() {

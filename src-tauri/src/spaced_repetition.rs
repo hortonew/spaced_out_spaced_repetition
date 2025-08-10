@@ -112,7 +112,7 @@ impl SpacedRepetition {
 
     /// Simple exponential algorithm implementation
     fn calculate_exponential(card: &Card, difficulty: &ReviewDifficulty, base: f64) -> (i64, f64, chrono::DateTime<Utc>, u32, f64) {
-        let mut new_exponential_factor = card.exponential_factor;
+        let new_exponential_factor;
         let new_interval;
 
         match difficulty {
@@ -431,5 +431,148 @@ mod tests {
         assert_eq!(stats.cards_new, 0);
         assert_eq!(stats.cards_learning, 0);
         assert_eq!(stats.cards_mature, 0);
+    }
+
+    // Algorithm-specific tests
+    #[test]
+    fn test_calculate_leitner_good_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.leitner_box = 1;
+
+        let intervals = vec![1, 3, 7, 14, 30];
+        let (new_interval, _, _, new_leitner_box, _) = SpacedRepetition::calculate_leitner(&card, &ReviewDifficulty::Good, &intervals);
+
+        assert_eq!(new_interval, 7); // intervals[2]
+        assert_eq!(new_leitner_box, 2);
+    }
+
+    #[test]
+    fn test_calculate_leitner_again_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.leitner_box = 3;
+
+        let intervals = vec![1, 3, 7, 14, 30];
+        let (new_interval, _, _, new_leitner_box, _) = SpacedRepetition::calculate_leitner(&card, &ReviewDifficulty::Again, &intervals);
+
+        assert_eq!(new_interval, 1); // intervals[0]
+        assert_eq!(new_leitner_box, 0);
+    }
+
+    #[test]
+    fn test_calculate_leitner_hard_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.leitner_box = 2;
+
+        let intervals = vec![1, 3, 7, 14, 30];
+        let (new_interval, _, _, new_leitner_box, _) = SpacedRepetition::calculate_leitner(&card, &ReviewDifficulty::Hard, &intervals);
+
+        assert_eq!(new_interval, 3); // intervals[1] (moved back one box)
+        assert_eq!(new_leitner_box, 1);
+    }
+
+    #[test]
+    fn test_calculate_leitner_max_box() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.leitner_box = 4; // Last box
+
+        let intervals = vec![1, 3, 7, 14, 30];
+        let (new_interval, _, _, new_leitner_box, _) = SpacedRepetition::calculate_leitner(&card, &ReviewDifficulty::Good, &intervals);
+
+        assert_eq!(new_interval, 30); // intervals[4] (stays in last box)
+        assert_eq!(new_leitner_box, 4);
+    }
+
+    #[test]
+    fn test_calculate_exponential_good_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.exponential_factor = 1.5;
+
+        let base = 2.0;
+        let (new_interval, _, _, _, new_factor) = SpacedRepetition::calculate_exponential(&card, &ReviewDifficulty::Good, base);
+
+        assert_eq!(new_interval, 3); // ceil(1.5 * 2.0)
+        assert_eq!(new_factor, 3.0); // 1.5 * 2.0
+    }
+
+    #[test]
+    fn test_calculate_exponential_again_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.exponential_factor = 2.0;
+
+        let base = 2.0;
+        let (new_interval, _, _, _, new_factor) = SpacedRepetition::calculate_exponential(&card, &ReviewDifficulty::Again, base);
+
+        assert_eq!(new_interval, 1);
+        assert_eq!(new_factor, 1.0); // Reset to 1.0
+    }
+
+    #[test]
+    fn test_calculate_exponential_hard_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.exponential_factor = 2.0;
+
+        let base = 2.0;
+        let (new_interval, _, _, _, new_factor) = SpacedRepetition::calculate_exponential(&card, &ReviewDifficulty::Hard, base);
+
+        assert_eq!(new_interval, 4); // ceil(2.0 * (2.0 * 0.8)) = ceil(3.2) = 4
+        assert_eq!(new_factor, 3.2); // 2.0 * (2.0 * 0.8)
+    }
+
+    #[test]
+    fn test_calculate_exponential_easy_review() {
+        let mut card = create_test_card("1", 2, 1, 2.5);
+        card.exponential_factor = 1.5;
+
+        let base = 2.5;
+        let (new_interval, _, _, _, new_factor) = SpacedRepetition::calculate_exponential(&card, &ReviewDifficulty::Easy, base);
+
+        assert_eq!(new_interval, 6); // ceil(1.5 * 2.5 * 1.5) = ceil(5.625) = 6
+        assert_eq!(new_factor, 5.625); // 1.5 * 2.5 * 1.5
+    }
+
+    #[test]
+    fn test_algorithm_switching_sm2_to_leitner() {
+        let card = create_test_card("1", 3, 6, 2.5); // Different starting conditions
+
+        // SM2 calculation
+        let mut sm2_settings = crate::models::AppSettings::default();
+        sm2_settings.algorithm = crate::models::SpacedRepetitionAlgorithm::SM2;
+
+        let (sm2_interval, _sm2_ease, _, _, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &sm2_settings);
+
+        // Leitner calculation
+        let mut leitner_settings = crate::models::AppSettings::default();
+        leitner_settings.algorithm = crate::models::SpacedRepetitionAlgorithm::Leitner;
+
+        let (leitner_interval, _, _, leitner_box, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &leitner_settings);
+
+        // Different algorithms should produce different results
+        // SM2: 6 * 2.5 = 15, Leitner: intervals[1] = 3
+        assert_ne!(sm2_interval, leitner_interval);
+        assert_eq!(leitner_box, 1); // Leitner should advance to box 1
+    }
+
+    #[test]
+    fn test_algorithm_switching_custom_settings() {
+        let card = create_test_card("1", 2, 1, 2.5);
+
+        // Custom Leitner intervals
+        let mut custom_settings = crate::models::AppSettings::default();
+        custom_settings.algorithm = crate::models::SpacedRepetitionAlgorithm::Leitner;
+        custom_settings.leitner_intervals = vec![2, 5, 12, 25, 50];
+
+        let (interval, _, _, _, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &custom_settings);
+
+        assert_eq!(interval, 5); // custom_settings.leitner_intervals[1]
+
+        // Custom exponential base
+        let mut exp_settings = crate::models::AppSettings::default();
+        exp_settings.algorithm = crate::models::SpacedRepetitionAlgorithm::SimpleExponential;
+        exp_settings.exponential_base = 3.0;
+
+        let (exp_interval, _, _, _, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &exp_settings);
+
+        assert_eq!(exp_interval, 3); // ceil(1.0 * 3.0)
     }
 }

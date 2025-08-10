@@ -1,5 +1,5 @@
 use crate::models::{
-    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest, AppSettings,
+    AppSettings, BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest,
 };
 use crate::spaced_repetition::SpacedRepetition;
 use crate::storage::Storage;
@@ -96,7 +96,7 @@ impl CardService {
         let settings = self.settings.lock().map_err(|_| "Failed to lock settings")?;
 
         if let Some(card) = cards.get_mut(&id) {
-            let (new_interval, new_ease_factor, next_review, new_leitner_box, new_exponential_factor) = 
+            let (new_interval, new_ease_factor, next_review, new_leitner_box, new_exponential_factor) =
                 SpacedRepetition::calculate_next_review(card, &difficulty, &settings);
 
             card.last_reviewed = Some(Utc::now());
@@ -244,7 +244,9 @@ impl CardService {
 
     // Helper method to save settings
     fn save_settings(&self, settings: &AppSettings) -> Result<(), String> {
-        self.storage.save_settings(settings).map_err(|e| format!("Failed to save settings: {}", e))
+        self.storage
+            .save_settings(settings)
+            .map_err(|e| format!("Failed to save settings: {}", e))
     }
 }
 
@@ -743,5 +745,137 @@ mod tests {
         assert_eq!(cards[0].front, "Persistent");
         assert_eq!(cards[0].back, "Data");
         assert_eq!(cards[0].tag, Some("Test".to_string()));
+    }
+
+    // Settings management tests
+    #[test]
+    #[serial]
+    fn test_get_default_settings() {
+        let (service, _temp_dir) = create_test_service();
+
+        let settings = service.get_settings().unwrap();
+        assert_eq!(settings.algorithm, SpacedRepetitionAlgorithm::SM2);
+        assert_eq!(settings.leitner_intervals, vec![1, 3, 7, 14, 30]);
+        assert_eq!(settings.exponential_base, 2.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_update_settings_sm2() {
+        let (service, _temp_dir) = create_test_service();
+
+        let mut new_settings = AppSettings::default();
+        new_settings.algorithm = SpacedRepetitionAlgorithm::SM2;
+
+        let updated_settings = service.update_settings(new_settings.clone()).unwrap();
+        assert_eq!(updated_settings.algorithm, SpacedRepetitionAlgorithm::SM2);
+
+        // Verify settings persistence
+        let retrieved_settings = service.get_settings().unwrap();
+        assert_eq!(retrieved_settings.algorithm, SpacedRepetitionAlgorithm::SM2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_update_settings_leitner() {
+        let (service, _temp_dir) = create_test_service();
+
+        let mut new_settings = AppSettings::default();
+        new_settings.algorithm = SpacedRepetitionAlgorithm::Leitner;
+        new_settings.leitner_intervals = vec![2, 5, 10, 21, 45];
+
+        let updated_settings = service.update_settings(new_settings.clone()).unwrap();
+        assert_eq!(updated_settings.algorithm, SpacedRepetitionAlgorithm::Leitner);
+        assert_eq!(updated_settings.leitner_intervals, vec![2, 5, 10, 21, 45]);
+
+        // Verify settings persistence
+        let retrieved_settings = service.get_settings().unwrap();
+        assert_eq!(retrieved_settings.algorithm, SpacedRepetitionAlgorithm::Leitner);
+        assert_eq!(retrieved_settings.leitner_intervals, vec![2, 5, 10, 21, 45]);
+    }
+
+    #[test]
+    #[serial]
+    fn test_update_settings_exponential() {
+        let (service, _temp_dir) = create_test_service();
+
+        let mut new_settings = AppSettings::default();
+        new_settings.algorithm = SpacedRepetitionAlgorithm::SimpleExponential;
+        new_settings.exponential_base = 1.5;
+
+        let updated_settings = service.update_settings(new_settings.clone()).unwrap();
+        assert_eq!(updated_settings.algorithm, SpacedRepetitionAlgorithm::SimpleExponential);
+        assert_eq!(updated_settings.exponential_base, 1.5);
+
+        // Verify settings persistence
+        let retrieved_settings = service.get_settings().unwrap();
+        assert_eq!(retrieved_settings.algorithm, SpacedRepetitionAlgorithm::SimpleExponential);
+        assert_eq!(retrieved_settings.exponential_base, 1.5);
+    }
+
+    #[test]
+    #[serial]
+    fn test_review_card_with_different_algorithms() {
+        let (service, _temp_dir) = create_test_service();
+
+        // Create a card
+        let card = service.create_card(create_test_request("Q1", "A1", None)).unwrap();
+
+        // Test with SM2 algorithm (default)
+        service.review_card(card.id.clone(), ReviewDifficulty::Good).unwrap();
+        let updated_card = service.get_card(card.id.clone()).unwrap().unwrap();
+        assert!(updated_card.interval > 0);
+        assert!(updated_card.ease_factor >= 1.3);
+
+        // Switch to Leitner algorithm
+        let mut leitner_settings = AppSettings::default();
+        leitner_settings.algorithm = SpacedRepetitionAlgorithm::Leitner;
+        service.update_settings(leitner_settings).unwrap();
+
+        // Review the card again with Leitner
+        service.review_card(card.id.clone(), ReviewDifficulty::Good).unwrap();
+        let leitner_card = service.get_card(card.id.clone()).unwrap().unwrap();
+        // Leitner should have updated the leitner_box field
+        assert!(leitner_card.leitner_box > 0);
+
+        // Switch to SimpleExponential algorithm
+        let mut exp_settings = AppSettings::default();
+        exp_settings.algorithm = SpacedRepetitionAlgorithm::SimpleExponential;
+        exp_settings.exponential_base = 2.5;
+        service.update_settings(exp_settings).unwrap();
+
+        // Review the card again with SimpleExponential
+        service.review_card(card.id.clone(), ReviewDifficulty::Good).unwrap();
+        let exp_card = service.get_card(card.id).unwrap().unwrap();
+        // SimpleExponential should have updated the exponential_factor field
+        assert!(exp_card.exponential_factor > 1.0);
+    }
+
+    #[test]
+    #[serial]
+    fn test_settings_persistence_across_instances() {
+        let temp_dir = TempDir::new().unwrap();
+        let storage_path = temp_dir.path().join("test_cards.json");
+
+        // Create first service instance and update settings
+        {
+            let storage = Storage::new_with_path(storage_path.clone());
+            let service = CardService::new(storage).unwrap();
+
+            let mut new_settings = AppSettings::default();
+            new_settings.algorithm = SpacedRepetitionAlgorithm::Leitner;
+            new_settings.leitner_intervals = vec![1, 2, 4, 8, 16];
+            service.update_settings(new_settings).unwrap();
+        }
+
+        // Create second service instance and verify settings persistence
+        {
+            let storage = Storage::new_with_path(storage_path);
+            let service = CardService::new(storage).unwrap();
+
+            let settings = service.get_settings().unwrap();
+            assert_eq!(settings.algorithm, SpacedRepetitionAlgorithm::Leitner);
+            assert_eq!(settings.leitner_intervals, vec![1, 2, 4, 8, 16]);
+        }
     }
 }

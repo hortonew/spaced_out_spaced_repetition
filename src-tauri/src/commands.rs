@@ -1,6 +1,7 @@
 use crate::card_service::CardService;
 use crate::models::{
-    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest, AppSettings,
+    AppSettings, BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, SpacedRepetitionAlgorithm,
+    TagStats, UpdateCardRequest,
 };
 use tauri::State;
 
@@ -354,5 +355,86 @@ mod tests {
         assert!(matches!(ReviewDifficulty::from_u8(2), Ok(ReviewDifficulty::Good)));
         assert!(matches!(ReviewDifficulty::from_u8(3), Ok(ReviewDifficulty::Easy)));
         assert!(ReviewDifficulty::from_u8(4).is_err());
+    }
+
+    // Settings command tests
+    #[tokio::test]
+    #[serial]
+    async fn test_get_settings_command() {
+        let (service, _temp_dir) = create_test_service();
+
+        let result = service.get_settings();
+        assert!(result.is_ok());
+
+        let settings = result.unwrap();
+        assert_eq!(settings.algorithm, SpacedRepetitionAlgorithm::SM2);
+        assert_eq!(settings.leitner_intervals, vec![1, 3, 7, 14, 30]);
+        assert_eq!(settings.exponential_base, 2.0);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_update_settings_command() {
+        let (service, _temp_dir) = create_test_service();
+
+        let mut new_settings = AppSettings::default();
+        new_settings.algorithm = SpacedRepetitionAlgorithm::Leitner;
+        new_settings.leitner_intervals = vec![2, 4, 8, 16, 32];
+
+        let result = service.update_settings(new_settings.clone());
+        assert!(result.is_ok());
+
+        let updated_settings = result.unwrap();
+        assert_eq!(updated_settings.algorithm, SpacedRepetitionAlgorithm::Leitner);
+        assert_eq!(updated_settings.leitner_intervals, vec![2, 4, 8, 16, 32]);
+
+        // Verify persistence
+        let retrieved_settings = service.get_settings().unwrap();
+        assert_eq!(retrieved_settings.algorithm, SpacedRepetitionAlgorithm::Leitner);
+        assert_eq!(retrieved_settings.leitner_intervals, vec![2, 4, 8, 16, 32]);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_update_settings_exponential_command() {
+        let (service, _temp_dir) = create_test_service();
+
+        let mut new_settings = AppSettings::default();
+        new_settings.algorithm = SpacedRepetitionAlgorithm::SimpleExponential;
+        new_settings.exponential_base = 1.8;
+
+        let result = service.update_settings(new_settings.clone());
+        assert!(result.is_ok());
+
+        let updated_settings = result.unwrap();
+        assert_eq!(updated_settings.algorithm, SpacedRepetitionAlgorithm::SimpleExponential);
+        assert_eq!(updated_settings.exponential_base, 1.8);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_review_card_with_algorithm_settings() {
+        let (service, _temp_dir) = create_test_service();
+
+        // Create a card
+        let request = CreateCardRequest {
+            front: "Test Question".to_string(),
+            back: "Test Answer".to_string(),
+            tag: None,
+        };
+        let card = service.create_card(request).unwrap();
+
+        // Switch to Leitner algorithm
+        let mut leitner_settings = AppSettings::default();
+        leitner_settings.algorithm = SpacedRepetitionAlgorithm::Leitner;
+        service.update_settings(leitner_settings).unwrap();
+
+        // Review the card
+        let result = service.review_card(card.id.clone(), ReviewDifficulty::Good);
+        assert!(result.is_ok());
+
+        // Verify the card was updated with Leitner-specific fields
+        let updated_card = service.get_card(card.id).unwrap().unwrap();
+        assert!(updated_card.leitner_box > 0);
     }
 }

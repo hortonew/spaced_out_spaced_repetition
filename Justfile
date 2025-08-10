@@ -32,3 +32,11 @@ debug:
 # Run tests
 test:
     cargo test -p app
+
+# Coverage
+cov:
+    cargo llvm-cov --html --open -p app
+
+# Icon
+icon:
+    cargo tauri icon ./icon.png

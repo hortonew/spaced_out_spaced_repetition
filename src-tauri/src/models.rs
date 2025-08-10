@@ -86,7 +86,7 @@ pub struct TagStats {
     pub cards_mature: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SpacedRepetitionAlgorithm {
     SM2,               // SuperMemo 2 algorithm (current)
     Leitner,           // Leitner box system

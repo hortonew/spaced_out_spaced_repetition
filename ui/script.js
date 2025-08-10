@@ -672,10 +672,12 @@ function setupMobileKeyboardHandling() {
 function showSettingsMenu() {
     const settingsMenu = document.getElementById('settings-menu');
     const aboutSection = document.getElementById('about-section');
+    const algorithmSection = document.getElementById('algorithm-section');
 
-    // Show the main settings menu, hide the about section
+    // Show the main settings menu, hide other sections
     settingsMenu.style.display = 'block';
     aboutSection.style.display = 'none';
+    algorithmSection.style.display = 'none';
 
     // Set up event listeners for settings if not already done
     setupSettingsEventListeners();
@@ -684,26 +686,312 @@ function showSettingsMenu() {
 function setupSettingsEventListeners() {
     // Remove existing listeners to prevent duplicates
     const aboutBtn = document.getElementById('about-btn');
+    const algorithmBtn = document.getElementById('algorithm-btn');
     const backToSettingsBtn = document.getElementById('back-to-settings');
+    const backToSettingsFromAlgorithmBtn = document.getElementById('back-to-settings-from-algorithm');
+    const saveAlgorithmBtn = document.getElementById('save-algorithm-settings');
+    const resetAlgorithmBtn = document.getElementById('reset-algorithm-settings');
 
     if (aboutBtn && !aboutBtn.hasAttribute('data-listener-added')) {
         aboutBtn.addEventListener('click', showAboutSection);
         aboutBtn.setAttribute('data-listener-added', 'true');
     }
 
+    if (algorithmBtn && !algorithmBtn.hasAttribute('data-listener-added')) {
+        algorithmBtn.addEventListener('click', showAlgorithmSection);
+        algorithmBtn.setAttribute('data-listener-added', 'true');
+    }
+
     if (backToSettingsBtn && !backToSettingsBtn.hasAttribute('data-listener-added')) {
         backToSettingsBtn.addEventListener('click', showSettingsMenu);
         backToSettingsBtn.setAttribute('data-listener-added', 'true');
+    }
+
+    if (backToSettingsFromAlgorithmBtn && !backToSettingsFromAlgorithmBtn.hasAttribute('data-listener-added')) {
+        backToSettingsFromAlgorithmBtn.addEventListener('click', showSettingsMenu);
+        backToSettingsFromAlgorithmBtn.setAttribute('data-listener-added', 'true');
+    }
+
+    if (saveAlgorithmBtn && !saveAlgorithmBtn.hasAttribute('data-listener-added')) {
+        saveAlgorithmBtn.addEventListener('click', saveAlgorithmSettings);
+        saveAlgorithmBtn.setAttribute('data-listener-added', 'true');
+    }
+
+    if (resetAlgorithmBtn && !resetAlgorithmBtn.hasAttribute('data-listener-added')) {
+        resetAlgorithmBtn.addEventListener('click', resetAlgorithmSettings);
+        resetAlgorithmBtn.setAttribute('data-listener-added', 'true');
     }
 }
 
 function showAboutSection() {
     const settingsMenu = document.getElementById('settings-menu');
     const aboutSection = document.getElementById('about-section');
+    const algorithmSection = document.getElementById('algorithm-section');
 
     // Hide the settings menu, show the about section
     settingsMenu.style.display = 'none';
     aboutSection.style.display = 'block';
+    algorithmSection.style.display = 'none';
+}
+
+async function showAlgorithmSection() {
+    const settingsMenu = document.getElementById('settings-menu');
+    const aboutSection = document.getElementById('about-section');
+    const algorithmSection = document.getElementById('algorithm-section');
+
+    // Hide other sections, show algorithm section
+    settingsMenu.style.display = 'none';
+    aboutSection.style.display = 'none';
+    algorithmSection.style.display = 'block';
+
+    // Load current settings
+    await loadAlgorithmSettings();
+}
+
+async function loadAlgorithmSettings() {
+    try {
+        const settings = await invoke('get_settings');
+
+        // Set the selected algorithm
+        const algorithmRadios = document.querySelectorAll('input[name="algorithm"]');
+        algorithmRadios.forEach(radio => {
+            radio.checked = radio.value === settings.algorithm;
+
+            // Remove existing listener to avoid stale closures
+            if (radio.hasAttribute('data-listener-added')) {
+                radio.removeAttribute('data-listener-added');
+            }
+
+            // Add fresh change listener
+            radio.addEventListener('change', async () => {
+                if (radio.checked) {
+                    // Get fresh settings and create temporary settings object with new algorithm
+                    const currentSettings = await invoke('get_settings');
+                    const tempSettings = { ...currentSettings, algorithm: radio.value };
+                    updateAlgorithmSpecificSettings(tempSettings);
+                    // Indicate unsaved changes when algorithm is changed
+                    indicateUnsavedChanges();
+                }
+            });
+            radio.setAttribute('data-listener-added', 'true');
+        });
+
+        // Show algorithm-specific settings
+        updateAlgorithmSpecificSettings(settings);
+
+        // Reset save button to clean state when settings are loaded
+        const saveButton = document.getElementById('save-algorithm-settings');
+        if (saveButton) {
+            saveButton.classList.remove('bg-green-600');
+            saveButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            saveButton.textContent = 'Save Settings';
+            saveButton.disabled = false;
+        }
+    } catch (error) {
+        console.error('Failed to load algorithm settings:', error);
+        showError('Failed to load settings');
+    }
+}
+
+function updateAlgorithmSpecificSettings(settings) {
+    const specificSettingsDiv = document.getElementById('algorithm-specific-settings');
+    const selectedAlgorithm = settings.algorithm;
+
+    let content = '';
+
+    switch (selectedAlgorithm) {
+        case 'Leitner':
+            content = `
+                <h4 class="font-medium mb-3">Leitner Box Intervals (days)</h4>
+                <div class="grid grid-cols-5 gap-2 mb-4">
+                    ${settings.leitner_intervals.map((interval, index) => `
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Box ${index + 1}</label>
+                            <input type="number" value="${interval}" min="1" 
+                                   class="w-full px-2 py-1 text-sm bg-zinc-800 border border-zinc-600 rounded focus:ring-blue-500 focus:border-blue-500"
+                                   data-leitner-interval="${index}">
+                        </div>
+                    `).join('')}
+                </div>
+                <p class="text-xs text-zinc-400">Cards move through boxes based on performance. Correct answers advance to the next box.</p>
+            `;
+            break;
+        case 'SimpleExponential':
+            content = `
+                <h4 class="font-medium mb-3">Exponential Settings</h4>
+                <div class="mb-4">
+                    <label class="block text-sm text-zinc-400 mb-2">Base Multiplier</label>
+                    <input type="number" value="${settings.exponential_base}" min="1.1" max="5" step="0.1"
+                           id="exponential-base"
+                           class="w-full px-3 py-2 bg-zinc-800 border border-zinc-600 rounded focus:ring-blue-500 focus:border-blue-500">
+                    <p class="text-xs text-zinc-400 mt-1">How much to multiply the interval by for each correct answer (default: 2.0)</p>
+                </div>
+            `;
+            break;
+        case 'SM2':
+        default:
+            content = `
+                <h4 class="font-medium mb-3">SM-2 Algorithm</h4>
+                <p class="text-sm text-zinc-400">
+                    SM-2 uses adaptive ease factors and intervals. No additional configuration needed.
+                    The algorithm automatically adjusts based on your performance.
+                </p>
+            `;
+            break;
+    }
+
+    specificSettingsDiv.innerHTML = content;
+
+    // Add listeners to algorithm-specific inputs to detect changes
+    addSettingsChangeListeners();
+}
+
+function addSettingsChangeListeners() {
+    // Add listeners to Leitner interval inputs
+    const leitnerInputs = document.querySelectorAll('[data-leitner-interval]');
+    leitnerInputs.forEach(input => {
+        if (!input.hasAttribute('data-change-listener-added')) {
+            input.addEventListener('input', indicateUnsavedChanges);
+            input.setAttribute('data-change-listener-added', 'true');
+        }
+    });
+
+    // Add listener to exponential base input
+    const exponentialInput = document.getElementById('exponential-base');
+    if (exponentialInput && !exponentialInput.hasAttribute('data-change-listener-added')) {
+        exponentialInput.addEventListener('input', indicateUnsavedChanges);
+        exponentialInput.setAttribute('data-change-listener-added', 'true');
+    }
+}
+
+function indicateUnsavedChanges() {
+    const saveButton = document.getElementById('save-algorithm-settings');
+    if (saveButton && !saveButton.disabled) {
+        // Reset to original blue color to indicate unsaved changes
+        saveButton.classList.remove('bg-green-600');
+        saveButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        saveButton.textContent = 'Save Settings';
+    }
+}
+
+async function saveAlgorithmSettings() {
+    const saveButton = document.getElementById('save-algorithm-settings');
+    const originalText = saveButton.textContent;
+
+    try {
+        // Add visual feedback to the button
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+        saveButton.classList.add('opacity-75', 'scale-95');
+        saveButton.classList.remove('hover:bg-blue-700');
+
+        const selectedAlgorithm = document.querySelector('input[name="algorithm"]:checked').value;
+
+        let settings = {
+            algorithm: selectedAlgorithm,
+            leitner_intervals: [1, 3, 7, 14, 30], // default
+            exponential_base: 2.0 // default
+        };
+
+        // Collect algorithm-specific settings
+        switch (selectedAlgorithm) {
+            case 'Leitner':
+                const leitnerInputs = document.querySelectorAll('[data-leitner-interval]');
+                settings.leitner_intervals = Array.from(leitnerInputs).map(input => parseInt(input.value) || 1);
+                break;
+            case 'SimpleExponential':
+                const baseInput = document.getElementById('exponential-base');
+                settings.exponential_base = parseFloat(baseInput.value) || 2.0;
+                break;
+        }
+
+        await invoke('update_settings', { settings });
+
+        // Show success state briefly
+        saveButton.textContent = '✓ Saved!';
+        saveButton.classList.remove('opacity-75', 'scale-95');
+        saveButton.classList.add('bg-green-600');
+
+        // Reset button after a shorter delay
+        setTimeout(() => {
+            saveButton.disabled = false;
+            saveButton.textContent = originalText;
+            saveButton.classList.remove('bg-green-600');
+            saveButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }, 800); // Reduced from 1500ms
+
+    } catch (error) {
+        console.error('Failed to save algorithm settings:', error);
+
+        // Reset button on error
+        saveButton.disabled = false;
+        saveButton.textContent = originalText;
+        saveButton.classList.remove('opacity-75', 'scale-95');
+        saveButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+
+        showError('Failed to save settings');
+    }
+} async function resetAlgorithmSettings() {
+    const resetButton = document.getElementById('reset-algorithm-settings');
+    const originalText = resetButton.textContent;
+
+    try {
+        // Add visual feedback to the button
+        resetButton.disabled = true;
+        resetButton.textContent = 'Resetting...';
+        resetButton.classList.add('opacity-75', 'scale-95');
+        resetButton.classList.remove('hover:bg-zinc-600');
+
+        // Define default settings - ensure algorithm is 'SM2'
+        const defaultSettings = {
+            algorithm: 'SM2',
+            leitner_intervals: [1, 3, 7, 14, 30],
+            exponential_base: 2.0
+        };
+
+        console.log('Resetting to defaults:', defaultSettings);
+        await invoke('update_settings', { settings: defaultSettings });
+
+        // Show success state briefly
+        resetButton.textContent = '✓ Reset!';
+        resetButton.classList.remove('opacity-75', 'scale-95');
+        resetButton.classList.add('bg-green-600');
+
+        // Show success notification
+        // showSuccess('Settings reset to defaults successfully! 🔄');
+
+        // Explicitly reset the radio button selection first
+        const algorithmRadios = document.querySelectorAll('input[name="algorithm"]');
+        algorithmRadios.forEach(radio => {
+            radio.checked = radio.value === 'SM2';
+        });
+
+        // Then reload the settings display to ensure everything is in sync
+        await loadAlgorithmSettings();
+
+        // Force update the algorithm-specific settings display immediately
+        const currentSettings = await window.__TAURI__.core.invoke('get_settings');
+        updateAlgorithmSpecificSettings(currentSettings);
+
+        // Reset button after a shorter delay
+        setTimeout(() => {
+            resetButton.disabled = false;
+            resetButton.textContent = originalText;
+            resetButton.classList.remove('bg-green-600');
+            resetButton.classList.add('bg-zinc-700', 'hover:bg-zinc-600');
+        }, 800); // Reduced from 1500ms
+
+    } catch (error) {
+        console.error('Failed to reset algorithm settings:', error);
+
+        // Reset button on error
+        resetButton.disabled = false;
+        resetButton.textContent = originalText;
+        resetButton.classList.remove('opacity-75', 'scale-95');
+        resetButton.classList.add('bg-zinc-700', 'hover:bg-zinc-600');
+
+        showError('Failed to reset settings');
+    }
 }
 
 async function loadReviewStats() {
@@ -1451,7 +1739,7 @@ async function filterCards() {
         displayCards(filteredCards);
     } catch (error) {
         console.error('Failed to filter cards:', error);
-        showNotification('Failed to filter cards', 'error');
+        showError('Failed to filter cards');
     }
 }
 
@@ -1673,7 +1961,7 @@ async function loadTagStats() {
         displayTagStats(tagStats);
     } catch (error) {
         console.error('Failed to load tag stats:', error);
-        showNotification('Failed to load tag statistics', 'error');
+        showError('Failed to load tag statistics');
     }
 }
 

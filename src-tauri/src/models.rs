@@ -14,6 +14,10 @@ pub struct Card {
     pub ease_factor: f64, // SM-2 ease factor
     pub review_count: u32,
     pub correct_count: u32,
+    // Leitner system fields
+    pub leitner_box: u32, // Current box (0-based)
+    // Exponential algorithm fields
+    pub exponential_factor: f64, // Current exponential factor
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +86,36 @@ pub struct TagStats {
     pub cards_mature: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SpacedRepetitionAlgorithm {
+    SM2,               // SuperMemo 2 algorithm (current)
+    Leitner,           // Leitner box system
+    SimpleExponential, // Simple exponential spacing
+}
+
+impl Default for SpacedRepetitionAlgorithm {
+    fn default() -> Self {
+        SpacedRepetitionAlgorithm::SM2
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub algorithm: SpacedRepetitionAlgorithm,
+    pub leitner_intervals: Vec<i64>, // Custom intervals for Leitner system
+    pub exponential_base: f64,       // Base multiplier for exponential algorithm
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        AppSettings {
+            algorithm: SpacedRepetitionAlgorithm::SM2,
+            leitner_intervals: vec![1, 3, 7, 14, 30], // 5-box Leitner system
+            exponential_base: 2.0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,6 +152,8 @@ mod tests {
             ease_factor: 2.5,
             review_count: 0,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         };
 
         assert_eq!(card.id, "test-id");
@@ -128,6 +164,8 @@ mod tests {
         assert_eq!(card.ease_factor, 2.5);
         assert_eq!(card.review_count, 0);
         assert_eq!(card.correct_count, 0);
+        assert_eq!(card.leitner_box, 0);
+        assert_eq!(card.exponential_factor, 1.0);
         assert!(card.last_reviewed.is_none());
     }
 
@@ -145,6 +183,8 @@ mod tests {
             ease_factor: 2.5,
             review_count: 0,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         };
 
         let serialized = serde_json::to_string(&card).unwrap();

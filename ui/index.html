@@ -237,6 +237,15 @@
         min-height: 110vh !important; /* Force extra height for scrolling (reduced from 150vh) */
       }
     }
+    
+    /* Button click animation */
+    .btn-click-animation {
+      transition: all 0.2s ease-in-out;
+    }
+    
+    .btn-click-animation:active {
+      transform: scale(0.95);
+    }
   </style>
 </head>
 <body class="min-h-screen bg-zinc-950 text-zinc-100 antialiased mobile-safe-top mobile-safe-bottom">
@@ -458,6 +467,13 @@
         
         <!-- Settings Menu -->
         <div id="settings-menu" class="space-y-3">
+          <button id="algorithm-btn" class="w-full text-left px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors duration-200 flex items-center justify-between group">
+            <span class="font-medium">Spaced Repetition Algorithm</span>
+            <svg class="w-5 h-5 text-zinc-400 group-hover:text-zinc-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+          </button>
+          
           <button id="about-btn" class="w-full text-left px-4 py-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors duration-200 flex items-center justify-between group">
             <span class="font-medium">About</span>
             <svg class="w-5 h-5 text-zinc-400 group-hover:text-zinc-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -466,8 +482,65 @@
           </button>
           
           <!-- Future settings options can be added here -->
-          <div class="text-center py-8 text-zinc-500 text-sm">
+          <div class="text-center py-4 text-zinc-500 text-sm">
             More settings coming soon...
+          </div>
+        </div>
+
+        <!-- Algorithm Settings Section -->
+        <div id="algorithm-section" class="hidden">
+          <div class="mb-4">
+            <button id="back-to-settings-from-algorithm" class="flex items-center text-zinc-400 hover:text-zinc-300 transition-colors mb-4">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              Back to Settings
+            </button>
+          </div>
+          
+          <div class="space-y-6">
+            <div>
+              <h3 class="text-lg font-semibold mb-4">Choose Algorithm</h3>
+              <div class="space-y-3">
+                <label class="flex items-start space-x-3 cursor-pointer">
+                  <input type="radio" name="algorithm" value="SM2" class="mt-1 text-blue-600 border-zinc-600 bg-zinc-800 focus:ring-blue-500 focus:ring-offset-zinc-900">
+                  <div>
+                    <div class="font-medium">SM-2 (SuperMemo 2)</div>
+                    <div class="text-sm text-zinc-400">The most widely used algorithm, powers Anki. Uses ease factors and intervals based on performance.</div>
+                  </div>
+                </label>
+                
+                <label class="flex items-start space-x-3 cursor-pointer">
+                  <input type="radio" name="algorithm" value="Leitner" class="mt-1 text-blue-600 border-zinc-600 bg-zinc-800 focus:ring-blue-500 focus:ring-offset-zinc-900">
+                  <div>
+                    <div class="font-medium">Leitner System</div>
+                    <div class="text-sm text-zinc-400">Classic box-based system. Cards move between boxes with fixed intervals (1, 3, 7, 14, 30 days).</div>
+                  </div>
+                </label>
+                
+                <label class="flex items-start space-x-3 cursor-pointer">
+                  <input type="radio" name="algorithm" value="SimpleExponential" class="mt-1 text-blue-600 border-zinc-600 bg-zinc-800 focus:ring-blue-500 focus:ring-offset-zinc-900">
+                  <div>
+                    <div class="font-medium">Simple Exponential</div>
+                    <div class="text-sm text-zinc-400">Basic exponential spacing. Each correct answer doubles the interval, incorrect resets to 1 day.</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            <!-- Algorithm-specific settings -->
+            <div id="algorithm-specific-settings" class="border-t border-zinc-700 pt-6">
+              <!-- These will be populated based on selected algorithm -->
+            </div>
+            
+            <div class="flex space-x-3">
+              <button id="save-algorithm-settings" class="btn-click-animation flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors">
+                Save Settings
+              </button>
+              <button id="reset-algorithm-settings" class="btn-click-animation px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg font-medium transition-colors">
+                Reset to Defaults
+              </button>
+            </div>
           </div>
         </div>
 
@@ -497,8 +570,15 @@
                   using scientifically proven techniques.
                 </p>
                 <p>
-                  The app uses the SM-2 algorithm to optimize when you review flashcards based on how well 
-                  you remember them, helping you learn faster and retain knowledge longer.
+                  The app supports three different spaced repetition algorithms:
+                </p>
+                <ul class="list-disc list-inside ml-4 space-y-1">
+                  <li><strong>SM-2:</strong> The classic SuperMemo algorithm used by Anki</li>
+                  <li><strong>Leitner System:</strong> A simple box-based approach</li>
+                  <li><strong>Simple Exponential:</strong> Basic exponential spacing</li>
+                </ul>
+                <p>
+                  You can choose and configure your preferred algorithm in the settings.
                 </p>
               </div>
             </div>

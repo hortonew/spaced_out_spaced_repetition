@@ -1,12 +1,25 @@
-use crate::models::{Card, ReviewDifficulty};
+use crate::models::{AppSettings, Card, ReviewDifficulty, SpacedRepetitionAlgorithm};
 use chrono::{Duration, Utc};
 
-/// SM-2 spaced repetition algorithm implementation
+/// Multi-algorithm spaced repetition system
 pub struct SpacedRepetition;
 
 impl SpacedRepetition {
-    /// Calculate next review parameters based on performance
-    pub fn calculate_next_review(card: &Card, difficulty: &ReviewDifficulty) -> (i64, f64, chrono::DateTime<Utc>) {
+    /// Calculate next review parameters based on performance and algorithm
+    pub fn calculate_next_review(
+        card: &Card,
+        difficulty: &ReviewDifficulty,
+        settings: &AppSettings,
+    ) -> (i64, f64, chrono::DateTime<Utc>, u32, f64) {
+        match settings.algorithm {
+            SpacedRepetitionAlgorithm::SM2 => Self::calculate_sm2(card, difficulty),
+            SpacedRepetitionAlgorithm::Leitner => Self::calculate_leitner(card, difficulty, &settings.leitner_intervals),
+            SpacedRepetitionAlgorithm::SimpleExponential => Self::calculate_exponential(card, difficulty, settings.exponential_base),
+        }
+    }
+
+    /// SM-2 algorithm implementation (original)
+    fn calculate_sm2(card: &Card, difficulty: &ReviewDifficulty) -> (i64, f64, chrono::DateTime<Utc>, u32, f64) {
         let new_interval;
         let mut new_ease_factor = card.ease_factor;
 
@@ -45,7 +58,94 @@ impl SpacedRepetition {
         }
 
         let next_review = Utc::now() + Duration::days(new_interval);
-        (new_interval, new_ease_factor, next_review)
+        (
+            new_interval,
+            new_ease_factor,
+            next_review,
+            card.leitner_box,
+            card.exponential_factor,
+        )
+    }
+
+    /// Leitner system implementation
+    fn calculate_leitner(card: &Card, difficulty: &ReviewDifficulty, intervals: &[i64]) -> (i64, f64, chrono::DateTime<Utc>, u32, f64) {
+        let max_box = intervals.len().saturating_sub(1) as u32;
+        let new_leitner_box;
+
+        match difficulty {
+            ReviewDifficulty::Again => {
+                // Move back to first box
+                new_leitner_box = 0;
+            }
+            ReviewDifficulty::Hard => {
+                // Stay in current box or move back one
+                if card.leitner_box > 0 {
+                    new_leitner_box = card.leitner_box - 1;
+                } else {
+                    new_leitner_box = 0;
+                }
+            }
+            ReviewDifficulty::Good => {
+                // Move to next box
+                new_leitner_box = (card.leitner_box + 1).min(max_box);
+            }
+            ReviewDifficulty::Easy => {
+                // Skip a box if possible
+                new_leitner_box = (card.leitner_box + 2).min(max_box);
+            }
+        }
+
+        let new_interval = intervals
+            .get(new_leitner_box as usize)
+            .copied()
+            .unwrap_or(intervals[intervals.len() - 1]);
+        let next_review = Utc::now() + Duration::days(new_interval);
+
+        (
+            new_interval,
+            card.ease_factor,
+            next_review,
+            new_leitner_box,
+            card.exponential_factor,
+        )
+    }
+
+    /// Simple exponential algorithm implementation
+    fn calculate_exponential(card: &Card, difficulty: &ReviewDifficulty, base: f64) -> (i64, f64, chrono::DateTime<Utc>, u32, f64) {
+        let mut new_exponential_factor = card.exponential_factor;
+        let new_interval;
+
+        match difficulty {
+            ReviewDifficulty::Again => {
+                // Reset to beginning
+                new_exponential_factor = 1.0;
+                new_interval = 1;
+            }
+            ReviewDifficulty::Hard => {
+                // Smaller increase
+                new_exponential_factor = (card.exponential_factor * (base * 0.8)).max(1.0);
+                new_interval = new_exponential_factor.ceil() as i64;
+            }
+            ReviewDifficulty::Good => {
+                // Normal exponential increase
+                new_exponential_factor = card.exponential_factor * base;
+                new_interval = new_exponential_factor.ceil() as i64;
+            }
+            ReviewDifficulty::Easy => {
+                // Larger increase
+                new_exponential_factor = card.exponential_factor * base * 1.5;
+                new_interval = new_exponential_factor.ceil() as i64;
+            }
+        }
+
+        let next_review = Utc::now() + Duration::days(new_interval);
+        (
+            new_interval,
+            card.ease_factor,
+            next_review,
+            card.leitner_box,
+            new_exponential_factor,
+        )
     }
 
     /// Check if a card is due for review
@@ -101,6 +201,8 @@ mod tests {
             ease_factor,
             review_count,
             correct_count: review_count / 2, // Assume half correct
+            leitner_box: 0,
+            exponential_factor: 1.0,
         }
     }
 
@@ -117,13 +219,21 @@ mod tests {
             ease_factor: 2.5,
             review_count: 1,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         }
+    }
+
+    fn default_settings() -> crate::models::AppSettings {
+        crate::models::AppSettings::default()
     }
 
     #[test]
     fn test_calculate_next_review_again() {
         let card = create_test_card("1", 5, 10, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again, &settings);
 
         assert_eq!(new_interval, 1);
         assert_eq!(new_ease_factor, 2.3); // 2.5 - 0.2
@@ -134,7 +244,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_hard() {
         let card = create_test_card("1", 5, 10, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Hard);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Hard, &settings);
 
         assert_eq!(new_interval, 12); // ceil(10 * 1.2)
         assert_eq!(new_ease_factor, 2.35); // 2.5 - 0.15
@@ -145,7 +257,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_good_new_card() {
         let card = create_test_card("1", 0, 0, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &settings);
 
         assert_eq!(new_interval, 1);
         assert_eq!(new_ease_factor, 2.5);
@@ -156,7 +270,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_good_second_review() {
         let card = create_test_card("1", 1, 1, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &settings);
 
         assert_eq!(new_interval, 6);
         assert_eq!(new_ease_factor, 2.5);
@@ -167,7 +283,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_good_mature_card() {
         let card = create_test_card("1", 5, 10, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Good, &settings);
 
         assert_eq!(new_interval, 25); // ceil(10 * 2.5)
         assert_eq!(new_ease_factor, 2.5);
@@ -178,7 +296,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_easy_new_card() {
         let card = create_test_card("1", 0, 0, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Easy);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Easy, &settings);
 
         assert_eq!(new_interval, 4);
         assert_eq!(new_ease_factor, 2.65); // 2.5 + 0.15
@@ -189,7 +309,9 @@ mod tests {
     #[test]
     fn test_calculate_next_review_easy_mature_card() {
         let card = create_test_card("1", 5, 10, 2.5);
-        let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Easy);
+        let settings = default_settings();
+        let (new_interval, new_ease_factor, next_review, _, _) =
+            SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Easy, &settings);
 
         assert_eq!(new_interval, 33); // ceil(10 * 2.5 * 1.3)
         assert_eq!(new_ease_factor, 2.65); // 2.5 + 0.15
@@ -200,13 +322,14 @@ mod tests {
     #[test]
     fn test_ease_factor_minimum() {
         let mut card = create_test_card("1", 5, 10, 1.3); // Already at minimum
-        let (_, new_ease_factor, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again);
+        let settings = default_settings();
+        let (_, new_ease_factor, _, _, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again, &settings);
 
         assert_eq!(new_ease_factor, 1.3); // Should not go below 1.3
 
         // Multiple "Again" responses should not decrease below 1.3
         card.ease_factor = 1.4;
-        let (_, new_ease_factor, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again);
+        let (_, new_ease_factor, _, _, _) = SpacedRepetition::calculate_next_review(&card, &ReviewDifficulty::Again, &settings);
         assert_eq!(new_ease_factor, 1.3);
     }
 
@@ -230,6 +353,8 @@ mod tests {
             ease_factor: 2.5,
             review_count: 0,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         };
         assert!(SpacedRepetition::is_due(&now_card));
     }

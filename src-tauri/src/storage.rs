@@ -1,4 +1,4 @@
-use crate::models::Card;
+use crate::models::{Card, AppSettings};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 
 pub struct Storage {
     data_file: PathBuf,
+    settings_file: PathBuf,
 }
 
 impl Storage {
@@ -19,14 +20,17 @@ impl Storage {
 
         std::fs::create_dir_all(&data_dir)?;
         let data_file = data_dir.join("cards.json");
+        let settings_file = data_dir.join("settings.json");
 
-        Ok(Storage { data_file })
+        Ok(Storage { data_file, settings_file })
     }
 
     // Constructor for testing
     #[cfg(test)]
     pub fn new_with_path(data_file: PathBuf) -> Self {
-        Storage { data_file }
+        let mut settings_file = data_file.clone();
+        settings_file.set_file_name("settings.json");
+        Storage { data_file, settings_file }
     }
 
     pub fn load_cards(&self) -> Result<HashMap<String, Card>, Box<dyn std::error::Error>> {
@@ -45,6 +49,25 @@ impl Storage {
 
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, cards)?;
+        Ok(())
+    }
+
+    pub fn load_settings(&self) -> Result<AppSettings, Box<dyn std::error::Error>> {
+        if self.settings_file.exists() {
+            let file = File::open(&self.settings_file)?;
+            let reader = BufReader::new(file);
+            let settings: AppSettings = serde_json::from_reader(reader)?;
+            Ok(settings)
+        } else {
+            Ok(AppSettings::default())
+        }
+    }
+
+    pub fn save_settings(&self, settings: &AppSettings) -> Result<(), Box<dyn std::error::Error>> {
+        let file = OpenOptions::new().write(true).create(true).truncate(true).open(&self.settings_file)?;
+
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, settings)?;
         Ok(())
     }
 }
@@ -70,13 +93,16 @@ mod tests {
             ease_factor: 2.5,
             review_count: 0,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         }
     }
 
     fn create_test_storage() -> (Storage, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let data_file = temp_dir.path().join("cards.json");
-        let storage = Storage { data_file };
+        let settings_file = temp_dir.path().join("settings.json");
+        let storage = Storage { data_file, settings_file };
         (storage, temp_dir)
     }
 

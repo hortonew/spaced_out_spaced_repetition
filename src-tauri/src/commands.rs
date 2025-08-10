@@ -1,6 +1,6 @@
 use crate::card_service::CardService;
 use crate::models::{
-    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest,
+    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest, AppSettings,
 };
 use tauri::State;
 
@@ -71,6 +71,17 @@ pub async fn bulk_update_tag(service: State<'_, CardService>, request: BulkUpdat
 #[tauri::command]
 pub async fn delete_multiple_cards(service: State<'_, CardService>, card_ids: Vec<String>) -> Result<(), String> {
     service.delete_multiple_cards(card_ids)
+}
+
+// Settings commands
+#[tauri::command]
+pub async fn get_settings(service: State<'_, CardService>) -> Result<AppSettings, String> {
+    service.get_settings()
+}
+
+#[tauri::command]
+pub async fn update_settings(service: State<'_, CardService>, settings: AppSettings) -> Result<AppSettings, String> {
+    service.update_settings(settings)
 }
 
 #[cfg(test)]

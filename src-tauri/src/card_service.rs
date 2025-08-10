@@ -1,5 +1,5 @@
 use crate::models::{
-    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest,
+    BulkUpdateRequest, Card, CreateCardRequest, ReviewDifficulty, ReviewStats, SearchRequest, TagStats, UpdateCardRequest, AppSettings,
 };
 use crate::spaced_repetition::SpacedRepetition;
 use crate::storage::Storage;
@@ -10,14 +10,17 @@ use uuid::Uuid;
 
 pub struct CardService {
     cards: Mutex<HashMap<String, Card>>,
+    settings: Mutex<AppSettings>,
     storage: Storage,
 }
 
 impl CardService {
     pub fn new(storage: Storage) -> Result<Self, Box<dyn std::error::Error>> {
         let cards = storage.load_cards()?;
+        let settings = storage.load_settings().unwrap_or_default();
         Ok(CardService {
             cards: Mutex::new(cards),
+            settings: Mutex::new(settings),
             storage,
         })
     }
@@ -37,6 +40,8 @@ impl CardService {
             ease_factor: 2.5, // SM-2 default
             review_count: 0,
             correct_count: 0,
+            leitner_box: 0,
+            exponential_factor: 1.0,
         };
 
         cards.insert(card.id.clone(), card.clone());
@@ -88,14 +93,18 @@ impl CardService {
 
     pub fn review_card(&self, id: String, difficulty: ReviewDifficulty) -> Result<Card, String> {
         let mut cards = self.cards.lock().map_err(|_| "Failed to lock cards")?;
+        let settings = self.settings.lock().map_err(|_| "Failed to lock settings")?;
 
         if let Some(card) = cards.get_mut(&id) {
-            let (new_interval, new_ease_factor, next_review) = SpacedRepetition::calculate_next_review(card, &difficulty);
+            let (new_interval, new_ease_factor, next_review, new_leitner_box, new_exponential_factor) = 
+                SpacedRepetition::calculate_next_review(card, &difficulty, &settings);
 
             card.last_reviewed = Some(Utc::now());
             card.next_review = next_review;
             card.interval = new_interval;
             card.ease_factor = new_ease_factor;
+            card.leitner_box = new_leitner_box;
+            card.exponential_factor = new_exponential_factor;
             card.review_count += 1;
 
             // Increment correct count for Good and Easy responses
@@ -215,9 +224,27 @@ impl CardService {
         Ok(())
     }
 
+    // Settings management methods
+    pub fn get_settings(&self) -> Result<AppSettings, String> {
+        let settings = self.settings.lock().map_err(|_| "Failed to lock settings")?;
+        Ok(settings.clone())
+    }
+
+    pub fn update_settings(&self, new_settings: AppSettings) -> Result<AppSettings, String> {
+        let mut settings = self.settings.lock().map_err(|_| "Failed to lock settings")?;
+        *settings = new_settings.clone();
+        self.save_settings(&settings)?;
+        Ok(new_settings)
+    }
+
     // Helper method to save cards
     fn save_cards(&self, cards: &HashMap<String, Card>) -> Result<(), String> {
         self.storage.save_cards(cards).map_err(|e| format!("Failed to save cards: {}", e))
+    }
+
+    // Helper method to save settings
+    fn save_settings(&self, settings: &AppSettings) -> Result<(), String> {
+        self.storage.save_settings(settings).map_err(|e| format!("Failed to save settings: {}", e))
     }
 }
 

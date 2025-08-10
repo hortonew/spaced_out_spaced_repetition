@@ -28,6 +28,9 @@ pub fn run() {
             commands::get_tag_stats,
             commands::bulk_update_tag,
             commands::delete_multiple_cards,
+            // Settings commands
+            commands::get_settings,
+            commands::update_settings,
         ])
         .setup(|app| {
             // Initialize storage and card service

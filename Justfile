@@ -37,6 +37,6 @@ test:
 cov:
     cargo llvm-cov --html --open -p app
 
-# Icon
+# Icon generation for all platforms
 icon:
-    cargo tauri icon ./icon.png
+    cargo tauri icon ./Spaced_Out_Icon_circle.png

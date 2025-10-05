@@ -10,6 +10,15 @@ dev:
 android:
     cargo tauri android dev
 
+# Clean existing android structure in case names or package changed
+android-clean:
+	rm -rf src-tauri/gen/android
+
+android-rebuild:
+    rm -rf src-tauri/gen/android
+    cargo tauri android init
+    @just icon
+
 # Build and run Tauri in release mode (desktop)
 run:
     cargo tauri build --no-bundle && ./src-tauri/target/release/app
@@ -39,4 +48,4 @@ cov:
 
 # Icon generation for all platforms
 icon:
-    cargo tauri icon ./Spaced_Out_Icon_circle.png
+    cargo tauri icon ./icon.png

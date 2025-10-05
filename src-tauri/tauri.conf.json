@@ -4,7 +4,7 @@
     "version": "0.1.0",
     "identifier": "com.tauri.hortonew.com",
     "build": {
-        "frontendDist": "../ui"
+        "frontendDist": "../src"
     },
     "app": {
         "withGlobalTauri": true,
